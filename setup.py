@@ -53,6 +53,6 @@ setuptools.setup(
             "al-script-gui=module.gui.launcher:main",
         ],
     },
-    python_requires=">=3.10",
+    python_requires=">=3.13",
     zip_safe=False,
 )
