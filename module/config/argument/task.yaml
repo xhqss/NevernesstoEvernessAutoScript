@@ -1,0 +1,6 @@
+# Task definitions
+# Each task group contains tasks that reference argument.yaml groups
+
+Default:
+  tasks:
+    - DefaultTask

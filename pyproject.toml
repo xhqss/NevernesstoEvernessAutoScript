@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[tool.pyappify]
+app_name = "al-script"
+app_version = "0.1.0"
+author = "al-script"
+description = "Game Automation Framework"
+icon = "assets/icon.ico"
+main_script = "module/__init__.py"
+include_files = ["config/", "README.md"]
+exclude_dirs = ["__pycache__", ".git", "tests", "docs"]
+console = false
+one_file = false
+uac_admin = false

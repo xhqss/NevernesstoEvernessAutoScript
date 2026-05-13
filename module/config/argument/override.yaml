@@ -1,0 +1,6 @@
+# Override values (non-modifiable arguments)
+DefaultTask:
+  Scheduler:
+    Command:
+      type: state
+      display: hide
