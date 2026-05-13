@@ -1,0 +1,26 @@
+[project]
+name = "NevernesstoEvernessAutoScript"
+version = "0.1.0"
+description = "Game automation for Neverness to Everness (异环), built on al-script"
+requires-python = ">=3.12"
+dependencies = [
+    "al-script",
+    "opencv-python>=4.13",
+    "openvino>=2026.1",
+    "onnxocr-ppocrv5>=0.0.17",
+    "librosa>=0.11",
+    "soundcard>=0.4",
+    "scipy",
+    "scikit-learn",
+    "PySide6",
+    "pywin32",
+    "numpy",
+    "scikit-image>=0.26",
+    "psutil",
+]
+
+[project.scripts]
+nte-auto = "main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]

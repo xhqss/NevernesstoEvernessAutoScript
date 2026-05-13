@@ -1,0 +1,13 @@
+al-script
+opencv-python>=4.13
+openvino>=2026.1
+onnxocr-ppocrv5>=0.0.17
+librosa>=0.11
+soundcard>=0.4
+scipy
+scikit-learn
+PySide6
+pywin32
+numpy
+scikit-image>=0.26
+psutil

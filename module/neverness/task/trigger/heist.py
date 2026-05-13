@@ -1,0 +1,239 @@
+"""
+HeistTask (粉爪大劫案) - Spam key + quick run utility.
+
+Background trigger for the "Pink Claw Heist" activity.
+Features:
+- Key spamming while a trigger key is held
+- Scroll wheel alternation for faster pickup
+- Quick run via character switching (shift hold detection)
+"""
+
+import time
+
+import win32api
+import win32con
+
+from module.util.logger import logger
+
+from module.neverness.task.base import BaseNTETask
+
+
+class HeistTask(BaseNTETask):
+    """Background trigger for Pink Claw Heist key spamming and quick run."""
+
+    CONF_TRIGGER_KEY = "trigger_key"
+    CONF_USE_SCROLL = "use_scroll"
+    CONF_QUICK_RUN = "quick_run"
+    CONF_QUICK_RUN_CHAR_COUNT = "quick_run_char_count"
+
+    SEND_KEY_INTERVAL = 0.25
+    CHECK_INTERVAL = 0.01
+    QUICK_RUN_HOLD_INTERVAL = 0.5
+    QUICK_RUN_KEY_AFTER_SLEEP = 0.6
+    QUICK_RUN_SHIFT_INTERVAL = 0.3
+    QUICK_RUN_SHIFT_AFTER_SLEEP = 0.6
+
+    KEY_MAP = {
+        "space": win32con.VK_SPACE,
+        "shift": win32con.VK_SHIFT,
+        "ctrl": win32con.VK_CONTROL,
+        "control": win32con.VK_CONTROL,
+        "alt": win32con.VK_MENU,
+        "esc": win32con.VK_ESCAPE,
+        "escape": win32con.VK_ESCAPE,
+        "tab": win32con.VK_TAB,
+        "enter": win32con.VK_RETURN,
+        "return": win32con.VK_RETURN,
+        "backspace": win32con.VK_BACK,
+    }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.name = "heist"
+        self.trigger_interval = 0.1
+        self.default_config = {"_enabled": False}
+        self.config.setdefault(self.CONF_TRIGGER_KEY, "f")
+        self.config.setdefault(self.CONF_USE_SCROLL, True)
+        self.config.setdefault(self.CONF_QUICK_RUN, True)
+        self.config.setdefault(self.CONF_QUICK_RUN_CHAR_COUNT, 4)
+
+        # Runtime state
+        self._submitted = False
+        self._loop = False
+        self._scroll_time = 0
+        self._scroll_switch = False
+        self._scroll_count = 0
+        self._trigger_key_pressed = False
+        self._shift_pressed = False
+        self._shift_down_time = 0.0
+        self._quick_running = False
+        self._quick_run_index = 0
+        self._quick_run_time = 0.0
+        self._quick_run_step = 0
+
+    # ------------------------------------------------------------------
+    # Trigger entry point
+    # ------------------------------------------------------------------
+
+    def run(self):
+        """Check if in heist and start spam loop if needed."""
+        # Only active when in team (in-world, heist activity)
+        if not self.is_in_team():
+            self._loop = False
+            return
+
+        self._loop = True
+        if self._submitted:
+            return
+
+        self._submitted = True
+        self.submit_periodic_task(self.CHECK_INTERVAL, self._spam_key_loop)
+
+    # ------------------------------------------------------------------
+    # Spam key loop (runs in thread pool)
+    # ------------------------------------------------------------------
+
+    def _spam_key_loop(self) -> bool:
+        """Periodic task: spam the trigger key and handle quick run."""
+        if not self._loop or not self.is_foreground():
+            self._reset_quick_run()
+            return True
+
+        key = str(self.config.get(self.CONF_TRIGGER_KEY, "f"))
+        interval = self.SEND_KEY_INTERVAL
+
+        self._handle_quick_run()
+
+        key_pressed = self._is_key_pressed(key)
+        if not key_pressed:
+            self._trigger_key_pressed = False
+            return True
+
+        if not self._trigger_key_pressed:
+            self._scroll_switch = False
+            self._scroll_count = 0
+            self._trigger_key_pressed = True
+
+        self.send_key(key, interval=interval)
+        self._alternate_scroll(interval=interval)
+        return True
+
+    # ------------------------------------------------------------------
+    # Scroll alternation
+    # ------------------------------------------------------------------
+
+    def _alternate_scroll(self, interval=0):
+        """Alternate scroll up/down for faster item pickup."""
+        if not self.config.get(self.CONF_USE_SCROLL):
+            return
+        if time.time() - self._scroll_time >= interval:
+            time.sleep(0.01)
+            # This is a simplified scroll - real impl uses win32 mouse_event
+            self._scroll_time = time.time()
+            self._scroll_count += 1
+            if self._scroll_count >= 3:
+                self._scroll_count = 0
+                self._scroll_switch = not self._scroll_switch
+
+    # ------------------------------------------------------------------
+    # Quick run (character switching while holding shift)
+    # ------------------------------------------------------------------
+
+    def _handle_quick_run(self):
+        """Handle quick run via character switching."""
+        if not self.config.get(self.CONF_QUICK_RUN):
+            self._reset_quick_run()
+            return
+
+        shift_pressed = self._is_key_pressed("shift")
+        now = time.time()
+
+        if shift_pressed and not self._shift_pressed:
+            self._shift_down_time = now
+        elif not shift_pressed:
+            self._reset_quick_run()
+            return
+
+        self._shift_pressed = shift_pressed
+
+        if not self._quick_running:
+            if now - self._shift_down_time >= self.QUICK_RUN_HOLD_INTERVAL:
+                self._quick_running = True
+                self._quick_run_index = 0
+                self._quick_run_time = 0
+                self._quick_run_step = 0
+                self.send_key_up("shift")
+            else:
+                return
+
+        try:
+            char_count = int(self.config.get(self.CONF_QUICK_RUN_CHAR_COUNT, 4))
+        except (TypeError, ValueError):
+            char_count = 4
+        char_count = max(1, min(4, char_count))
+
+        if now < self._quick_run_time:
+            return
+
+        if not self.is_foreground() or not self._is_key_pressed("shift"):
+            self._reset_quick_run()
+            return
+
+        if self._quick_run_step == 0:
+            key = str(self._quick_run_index % char_count + 1)
+            self._quick_run_index += 1
+            self.send_key(key)
+            self._quick_run_step = 1
+            self._quick_run_time = now
+        elif self._quick_run_step == 1:
+            self.send_key("shift")
+            self._quick_run_step = 2
+            self._quick_run_time = now + self.QUICK_RUN_SHIFT_INTERVAL
+        else:
+            self.send_key("shift")
+            self._quick_run_step = 0
+            self._quick_run_time = now + self.QUICK_RUN_SHIFT_AFTER_SLEEP
+
+    def _reset_quick_run(self):
+        """Reset all quick run state."""
+        self._shift_pressed = False
+        self._shift_down_time = 0
+        self._quick_running = False
+        self._quick_run_index = 0
+        self._quick_run_time = 0
+        self._quick_run_step = 0
+
+    # ------------------------------------------------------------------
+    # Key state detection
+    # ------------------------------------------------------------------
+
+    def _is_key_pressed(self, key) -> bool:
+        """Detect if a key is currently held down using Win32 API."""
+        vk_code = self._get_vk_code(key)
+        if vk_code is None:
+            return False
+        return bool(win32api.GetAsyncKeyState(vk_code) & 0x8000)
+
+    def _get_vk_code(self, key):
+        """Convert a key string to a Win32 virtual key code."""
+        if key is None:
+            return None
+        key = str(key).strip().lower()
+        if not key:
+            return None
+
+        if key in self.KEY_MAP:
+            return self.KEY_MAP[key]
+
+        if key.startswith("f") and key[1:].isdigit():
+            index = int(key[1:])
+            if 1 <= index <= 12:
+                return win32con.VK_F1 + index - 1
+
+        if len(key) == 1:
+            vk_code = win32api.VkKeyScan(key)
+            if vk_code == -1:
+                return None
+            return vk_code & 0xFF
+
+        return None
