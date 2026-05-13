@@ -1,0 +1,23 @@
+# GUI translations
+# This will be inserted to config/i18n/{lang}.json under key "Gui"
+
+Aside:
+  Home: 首页
+  Tasks: 任务
+  Device: 设备
+  Setting: 设置
+
+Button:
+  Start: 开始
+  Stop: 停止
+  Save: 保存
+  ClearLog: 清空日志
+
+Menu:
+  Default: 默认任务
+  Test: 测试
+
+Status:
+  Running: 运行中
+  Stopped: 已停止
+  Paused: 已暂停

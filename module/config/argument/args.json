@@ -1,0 +1,118 @@
+{
+  "DefaultTask": {
+    "Scheduler": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "NextRun": {
+        "type": "datetime",
+        "value": "2020-01-01 00:00:00",
+        "validate": "datetime"
+      },
+      "Command": {
+        "type": "state",
+        "value": "DefaultTask",
+        "display": "hide"
+      },
+      "SuccessInterval": {
+        "type": "input",
+        "value": 0,
+        "display": "hide"
+      },
+      "FailureInterval": {
+        "type": "input",
+        "value": 120,
+        "display": "hide"
+      }
+    },
+    "Device": {
+      "Platform": {
+        "type": "select",
+        "value": "auto",
+        "option": [
+          "auto",
+          "pc",
+          "adb"
+        ]
+      },
+      "Serial": {
+        "type": "input",
+        "value": "auto",
+        "valuetype": "str"
+      },
+      "ScreenshotMethod": {
+        "type": "select",
+        "value": "auto",
+        "option": [
+          "auto",
+          "ADB",
+          "WindowsGraphics",
+          "BitBlt",
+          "scrcpy",
+          "nemu_ipc"
+        ]
+      },
+      "ControlMethod": {
+        "type": "select",
+        "value": "auto",
+        "option": [
+          "auto",
+          "ADB",
+          "PostMessage",
+          "PyDirectInput",
+          "minitouch",
+          "maatouch"
+        ]
+      }
+    },
+    "Ocr": {
+      "Engine": {
+        "type": "select",
+        "value": "default",
+        "option": [
+          "default",
+          "cnocr",
+          "paddle",
+          "rapid",
+          "dgocr",
+          "onnx"
+        ]
+      },
+      "TargetHeight": {
+        "type": "input",
+        "value": 0,
+        "display": "hide"
+      }
+    },
+    "Window": {
+      "Title": {
+        "type": "input",
+        "value": "",
+        "valuetype": "str"
+      },
+      "Class": {
+        "type": "input",
+        "value": "",
+        "valuetype": "str"
+      },
+      "Exe": {
+        "type": "input",
+        "value": "",
+        "valuetype": "str"
+      }
+    },
+    "Storage": {
+      "Storage": {
+        "type": "storage",
+        "value": {},
+        "valuetype": "ignore",
+        "display": "disabled"
+      }
+    }
+  }
+}

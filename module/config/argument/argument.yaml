@@ -1,0 +1,57 @@
+# ====================
+# al-script 参数定义
+# ====================
+
+Scheduler:
+  Enable:
+    type: checkbox
+    value: false
+    option: [ true, false ]
+  NextRun: 2020-01-01 00:00:00
+  Command: Task
+  SuccessInterval:
+    value: 0
+    display: hide
+  FailureInterval:
+    value: 120
+    display: hide
+
+Device:
+  Platform:
+    value: auto
+    option: [ auto, pc, adb ]
+  Serial:
+    value: auto
+    valuetype: str
+  ScreenshotMethod:
+    value: auto
+    option: [ auto, ADB, WindowsGraphics, BitBlt, scrcpy, nemu_ipc ]
+  ControlMethod:
+    value: auto
+    option: [ auto, ADB, PostMessage, PyDirectInput, minitouch, maatouch ]
+
+Ocr:
+  Engine:
+    value: default
+    option: [ default, cnocr, paddle, rapid, dgocr, onnx ]
+  TargetHeight:
+    value: 0
+    display: hide
+
+Window:
+  Title:
+    value: ""
+    valuetype: str
+  Class:
+    value: ""
+    valuetype: str
+  Exe:
+    value: ""
+    valuetype: str
+
+Storage:
+  Storage:
+    type: storage
+    value: {}
+    valuetype: ignore
+    display: disabled
