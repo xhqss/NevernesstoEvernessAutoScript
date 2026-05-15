@@ -31,10 +31,13 @@ def filepath_args(filename='args'):
     return os.path.join(os.path.dirname(__file__), 'argument', f'{filename}.json')
 
 
+# Project root — 2 levels up from module/config/
+_PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+
+
 def filepath_config(filename):
-    """Path to user config JSON files."""
-    from module.util.file import get_path_relative_to_exe
-    return get_path_relative_to_exe(f'./config/{filename}.json')
+    """Path to user config JSON files (absolute, project-root-based)."""
+    return os.path.join(_PROJECT_ROOT, 'config', f'{filename}.json')
 
 
 def filepath_i18n(lang):
