@@ -97,11 +97,20 @@ class DeployConfig(ConfigModel):
         return os.path.abspath(os.path.join(os.path.dirname(__file__), '..')).replace('\\', '/')
 
     def execute(self, command, allow_failure=False, output=True):
+        import shlex
+        import subprocess
         command = command.replace('\\', '/')
-        if not output:
-            command = command + ' >nul 2>nul'
         logger.info(f'  $ {command}')
-        error_code = os.system(command)
+        try:
+            args = shlex.split(command)
+        except ValueError:
+            args = command.split()
+        kwargs = {}
+        if not output:
+            kwargs['stdout'] = subprocess.DEVNULL
+            kwargs['stderr'] = subprocess.DEVNULL
+        result = subprocess.run(args, **kwargs)
+        error_code = result.returncode
         if error_code:
             if allow_failure:
                 logger.info(f'  [allowed failure] code={error_code}')
