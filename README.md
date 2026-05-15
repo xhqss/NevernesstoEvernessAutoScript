@@ -1,9 +1,22 @@
-# al-script
+# NevernesstoEvernessAutoScript
 
-基于图像识别技术的通用 Python 游戏自动化框架。
+> 基于图像识别技术的《异环》(Neverness to Everness) 游戏自动化工具。
 
-从 [AzurLaneAutoScript (Alas)](https://github.com/LmeSzinc/AzurLaneAutoScript) 提取核心框架层，
-重构为通用、可扩展的自动化开发工具包。
+基于 [al-script](https://github.com/xhqss/NevernesstoEvernessAutoScript) 通用自动化框架，
+从 [AzurLaneAutoScript (Alas)](https://github.com/LmeSzinc/AzurLaneAutoScript) 核心架构重构而来。
+
+---
+
+## 项目状态：立项阶段
+
+本项目目前处于 **立项 / 早期开发阶段**，尚未发布可用的正式版本。
+
+如果你需要可用的《异环》自动化脚本，请访问：
+
+- [ok-nte](https://github.com/BnanZ0/ok-nte) — 基于 ok-script 的 NTE 自动化
+- [MaaNTE](https://github.com/1bananachicken/MaaNTE) — 基于 MaaFramework 的 NTE 自动化
+
+---
 
 ## 特性
 
