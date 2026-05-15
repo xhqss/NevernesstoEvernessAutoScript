@@ -1,4 +1,93 @@
-# Default values for tasks
+# ====================
+# al-script 默认值
+# ====================
+# 格式: TaskName → GroupName → ArgName: value
+
 DefaultTask:
   Device:
     Platform: auto
+    Serial: auto
+    ScreenshotMethod: auto
+    ControlMethod: auto
+  Ocr:
+    Engine: default
+  Window:
+    Title: ""
+    Class: ""
+    Exe: ""
+  NTEKeyBinding:
+    SkillKey: "e"
+    UltimateKey: "q"
+    ArcKey: "r"
+    DodgeKey: "shift"
+    InteractKey: "f"
+  NTEMonthlyCard:
+    CheckMonthlyCard: true
+    MonthlyCardTime: 5
+  NTESoundTrigger:
+    EnableSoundTrigger: true
+    DodgeAllAttacks: true
+    DodgeThreshold: 0.13
+    CounterAttackThreshold: 0.12
+  NTELauncher:
+    GameExe: "HTGame.exe"
+    GameClass: "UnrealWindow"
+    LaunchMethod: auto
+
+Launcher:
+  Device:
+    Platform: pc
+  Window:
+    Exe: "HTGame.exe"
+    Class: "UnrealWindow"
+  NTELauncher:
+    GameExe: "HTGame.exe"
+    GameClass: "UnrealWindow"
+    LaunchMethod: auto
+
+Daily:
+  NTEDaily:
+    EnableDaily: true
+    CollectMail: true
+    CollectBattlepass: true
+    CollectActivity: true
+
+Fishing:
+  NTEFishing:
+    EnableFishing: false
+    SellFish: true
+    BaitRestock: true
+    FishingMode: normal
+
+Anomaly:
+  NTEAnomaly:
+    EnableAnomaly: false
+    AnomalyType: all
+    AnomalyCount: 3
+
+Rhythm:
+  NTERhythm:
+    EnableRhythm: false
+    RhythmDifficulty: normal
+
+AutoCombat:
+  NTECombat:
+    EnableCombat: true
+    AutoDodge: true
+    AutoCounter: true
+    CombatMode: auto
+
+SkipDialog:
+  NTEDialog:
+    EnableSkipDialog: true
+    DialogSpeed: fast
+
+FastTravel:
+  NTETravel:
+    EnableFastTravel: true
+    TravelMethod: auto
+
+Heist:
+  NTEHeist:
+    EnableHeist: false
+    HeistKeyInterval: 0.05

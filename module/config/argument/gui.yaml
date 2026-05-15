@@ -1,11 +1,13 @@
-# GUI translations
-# This will be inserted to config/i18n/{lang}.json under key "Gui"
+# ====================
+# al-script GUI 中文标签
+# ====================
 
 Aside:
   Home: 首页
   Tasks: 任务
   Device: 设备
   Setting: 设置
+  NTESetting: NTE 设置
 
 Button:
   Start: 开始
@@ -15,9 +17,117 @@ Button:
 
 Menu:
   Default: 默认任务
-  Test: 测试
+  NTE: NTE 任务
 
 Status:
   Running: 运行中
   Stopped: 已停止
   Paused: 已暂停
+
+# --------------------
+# Framework Group Labels
+# --------------------
+
+Scheduler:
+  _info: 调度设置
+  Enable: 启用
+  NextRun: 下次运行
+  Command: 命令
+  SuccessInterval: 成功间隔
+  FailureInterval: 失败间隔
+  ServerUpdate: 服务器刷新
+
+Device:
+  _info: 设备设置
+  Platform: 平台
+  Serial: 序列号
+  ScreenshotMethod: 截图方式
+  ControlMethod: 控制方式
+
+Ocr:
+  _info: OCR 设置
+  Engine: OCR 引擎
+  TargetHeight: 目标高度
+
+Window:
+  _info: 窗口设置
+  Title: 窗口标题
+  Class: 窗口类名
+  Exe: 进程名
+
+# --------------------
+# NTE Group Labels
+# --------------------
+
+NTEKeyBinding:
+  _info: 按键绑定
+  SkillKey: 技能键
+  UltimateKey: 大招键
+  ArcKey: 弧技键
+  DodgeKey: 闪避键
+  InteractKey: 交互键
+
+NTEMonthlyCard:
+  _info: 月卡设置
+  CheckMonthlyCard: 检查月卡
+  MonthlyCardTime: 月卡领取时间
+
+NTESoundTrigger:
+  _info: 声音触发
+  EnableSoundTrigger: 启用声音触发
+  DodgeAllAttacks: 闪避所有攻击
+  DodgeThreshold: 闪避阈值
+  CounterAttackThreshold: 反击阈值
+
+NTEFishing:
+  _info: 自动钓鱼
+  EnableFishing: 启用钓鱼
+  SellFish: 卖鱼
+  BaitRestock: 自动补饵
+  FishingMode: 钓鱼模式
+
+NTECombat:
+  _info: 自动战斗
+  EnableCombat: 启用战斗
+  AutoDodge: 自动闪避
+  AutoCounter: 自动反击
+  CombatMode: 战斗模式
+
+NTERhythm:
+  _info: 自动音游
+  EnableRhythm: 启用音游
+  RhythmDifficulty: 音游难度
+
+NTEAnomaly:
+  _info: 异象界域
+  EnableAnomaly: 启用异象
+  AnomalyType: 异象类型
+  AnomalyCount: 异象次数
+
+NTEDaily:
+  _info: 日常任务
+  EnableDaily: 启用日常
+  CollectMail: 收取邮件
+  CollectBattlepass: 收取战令
+  CollectActivity: 收取活跃度
+
+NTELauncher:
+  _info: 启动器
+  GameExe: 游戏进程
+  GameClass: 窗口类名
+  LaunchMethod: 启动方式
+
+NTEHeist:
+  _info: 粉爪大劫案
+  EnableHeist: 启用劫案
+  HeistKeyInterval: 按键间隔
+
+NTETravel:
+  _info: 快速传送
+  EnableFastTravel: 启用传送
+  TravelMethod: 传送方式
+
+NTEDialog:
+  _info: 跳过对话
+  EnableSkipDialog: 启用跳对话
+  DialogSpeed: 跳对话速度

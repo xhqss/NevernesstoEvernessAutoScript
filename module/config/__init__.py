@@ -4,6 +4,7 @@ from module.config.utils import (
     DEFAULT_TIME, dict_to_kv
 )
 from module.config.config_generator import ConfigGenerator, generate_all
+from module.config.config_updater import ConfigUpdater
 from module.config.config import AlConfig, Function
 
 __all__ = [
@@ -11,5 +12,6 @@ __all__ = [
     'read_file', 'write_file', 'filepath_config', 'filepath_argument',
     'DEFAULT_TIME', 'dict_to_kv',
     'ConfigGenerator', 'generate_all',
+    'ConfigUpdater',
     'AlConfig', 'Function',
 ]

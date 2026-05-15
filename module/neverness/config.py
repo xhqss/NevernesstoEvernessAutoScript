@@ -6,10 +6,70 @@ from module.neverness.process_feature import process_feature
 
 _ASSETS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "assets")
 
-KEY_CONFIG = {"Skill Key": "e", "Ultimate Key": "q", "Arc Key": "r"}
-MONTHLY_CARD_CONFIG = {"Check Monthly Card": True, "Monthly Card Time": 5}
-SOUND_TRIGGER_CONFIG = {"Enable Sound Trigger": True, "Dodge All Attacks": True,
-                        "Dodge Threshold": 0.13, "Counter Attack Threshold": 0.12}
+
+def _get_config():
+    """Lazy-load AlConfig for reading game settings from user JSON."""
+    try:
+        from module.config.config import AlConfig
+        return AlConfig('template')
+    except Exception:
+        return None
+
+
+def get_key_config():
+    """Read key binding config from user JSON, with hardcoded fallback."""
+    config = _get_config()
+    if config:
+        try:
+            return {
+                "Skill Key": config.DefaultTask_NTEKeyBinding_SkillKey,
+                "Ultimate Key": config.DefaultTask_NTEKeyBinding_UltimateKey,
+                "Arc Key": config.DefaultTask_NTEKeyBinding_ArcKey,
+            }
+        except Exception:
+            pass
+    return {"Skill Key": "e", "Ultimate Key": "q", "Arc Key": "r"}
+
+
+def get_monthly_card_config():
+    """Read monthly card config from user JSON, with hardcoded fallback."""
+    config = _get_config()
+    if config:
+        try:
+            return {
+                "Check Monthly Card": config.DefaultTask_NTEMonthlyCard_CheckMonthlyCard,
+                "Monthly Card Time": config.DefaultTask_NTEMonthlyCard_MonthlyCardTime,
+            }
+        except Exception:
+            pass
+    return {"Check Monthly Card": True, "Monthly Card Time": 5}
+
+
+def get_sound_trigger_config():
+    """Read sound trigger config from user JSON, with hardcoded fallback."""
+    config = _get_config()
+    if config:
+        try:
+            return {
+                "Enable Sound Trigger": config.DefaultTask_NTESoundTrigger_EnableSoundTrigger,
+                "Dodge All Attacks": config.DefaultTask_NTESoundTrigger_DodgeAllAttacks,
+                "Dodge Threshold": config.DefaultTask_NTESoundTrigger_DodgeThreshold,
+                "Counter Attack Threshold": config.DefaultTask_NTESoundTrigger_CounterAttackThreshold,
+            }
+        except Exception:
+            pass
+    return {
+        "Enable Sound Trigger": True,
+        "Dodge All Attacks": True,
+        "Dodge Threshold": 0.13,
+        "Counter Attack Threshold": 0.12,
+    }
+
+
+# Backward-compatible aliases (lazy, reads from user JSON config)
+KEY_CONFIG = get_key_config()
+MONTHLY_CARD_CONFIG = get_monthly_card_config()
+SOUND_TRIGGER_CONFIG = get_sound_trigger_config()
 
 
 def make_config():

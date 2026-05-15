@@ -5,7 +5,8 @@
       "NextRun": "2020-01-01 00:00:00",
       "Command": "DefaultTask",
       "SuccessInterval": 0,
-      "FailureInterval": 120
+      "FailureInterval": 120,
+      "ServerUpdate": "00:00"
     },
     "Device": {
       "Platform": "auto",
@@ -18,9 +19,197 @@
       "TargetHeight": 0
     },
     "Window": {
-      "Title": "",
-      "Class": "",
-      "Exe": ""
+      "Title": null,
+      "Class": null,
+      "Exe": null
+    },
+    "NTEKeyBinding": {
+      "SkillKey": "e",
+      "UltimateKey": "q",
+      "ArcKey": "r",
+      "DodgeKey": "shift",
+      "InteractKey": "f"
+    },
+    "NTEMonthlyCard": {
+      "CheckMonthlyCard": true,
+      "MonthlyCardTime": 5
+    },
+    "NTESoundTrigger": {
+      "EnableSoundTrigger": true,
+      "DodgeAllAttacks": true,
+      "DodgeThreshold": 0.13,
+      "CounterAttackThreshold": 0.12
+    },
+    "NTELauncher": {
+      "GameExe": "HTGame.exe",
+      "GameClass": "UnrealWindow",
+      "LaunchMethod": "auto"
+    },
+    "Storage": {
+      "Storage": {}
+    }
+  },
+  "Launcher": {
+    "Scheduler": {
+      "Enable": false,
+      "NextRun": "2020-01-01 00:00:00",
+      "Command": "Launcher",
+      "SuccessInterval": 0,
+      "FailureInterval": 120,
+      "ServerUpdate": "00:00"
+    },
+    "Window": {
+      "Title": null,
+      "Class": "UnrealWindow",
+      "Exe": "HTGame.exe"
+    },
+    "NTELauncher": {
+      "GameExe": "HTGame.exe",
+      "GameClass": "UnrealWindow",
+      "LaunchMethod": "auto"
+    },
+    "Storage": {
+      "Storage": {}
+    }
+  },
+  "Daily": {
+    "Scheduler": {
+      "Enable": false,
+      "NextRun": "2020-01-01 00:00:00",
+      "Command": "Daily",
+      "SuccessInterval": 0,
+      "FailureInterval": 120,
+      "ServerUpdate": "00:00"
+    },
+    "NTEDaily": {
+      "EnableDaily": true,
+      "CollectMail": true,
+      "CollectBattlepass": true,
+      "CollectActivity": true
+    },
+    "Storage": {
+      "Storage": {}
+    }
+  },
+  "Fishing": {
+    "Scheduler": {
+      "Enable": false,
+      "NextRun": "2020-01-01 00:00:00",
+      "Command": "Fishing",
+      "SuccessInterval": 0,
+      "FailureInterval": 120,
+      "ServerUpdate": "00:00"
+    },
+    "NTEFishing": {
+      "EnableFishing": false,
+      "SellFish": true,
+      "BaitRestock": true,
+      "FishingMode": "normal"
+    },
+    "Storage": {
+      "Storage": {}
+    }
+  },
+  "Anomaly": {
+    "Scheduler": {
+      "Enable": false,
+      "NextRun": "2020-01-01 00:00:00",
+      "Command": "Anomaly",
+      "SuccessInterval": 0,
+      "FailureInterval": 120,
+      "ServerUpdate": "00:00"
+    },
+    "NTEAnomaly": {
+      "EnableAnomaly": false,
+      "AnomalyType": "all",
+      "AnomalyCount": 3
+    },
+    "Storage": {
+      "Storage": {}
+    }
+  },
+  "Rhythm": {
+    "Scheduler": {
+      "Enable": false,
+      "NextRun": "2020-01-01 00:00:00",
+      "Command": "Rhythm",
+      "SuccessInterval": 0,
+      "FailureInterval": 120,
+      "ServerUpdate": "00:00"
+    },
+    "NTERhythm": {
+      "EnableRhythm": false,
+      "RhythmDifficulty": "normal"
+    },
+    "Storage": {
+      "Storage": {}
+    }
+  },
+  "AutoCombat": {
+    "Scheduler": {
+      "Enable": false,
+      "NextRun": "2020-01-01 00:00:00",
+      "Command": "AutoCombat",
+      "SuccessInterval": 0,
+      "FailureInterval": 120,
+      "ServerUpdate": "00:00"
+    },
+    "NTECombat": {
+      "EnableCombat": true,
+      "AutoDodge": true,
+      "AutoCounter": true,
+      "CombatMode": "auto"
+    },
+    "Storage": {
+      "Storage": {}
+    }
+  },
+  "SkipDialog": {
+    "Scheduler": {
+      "Enable": false,
+      "NextRun": "2020-01-01 00:00:00",
+      "Command": "SkipDialog",
+      "SuccessInterval": 0,
+      "FailureInterval": 120,
+      "ServerUpdate": "00:00"
+    },
+    "NTEDialog": {
+      "EnableSkipDialog": true,
+      "DialogSpeed": "fast"
+    },
+    "Storage": {
+      "Storage": {}
+    }
+  },
+  "FastTravel": {
+    "Scheduler": {
+      "Enable": false,
+      "NextRun": "2020-01-01 00:00:00",
+      "Command": "FastTravel",
+      "SuccessInterval": 0,
+      "FailureInterval": 120,
+      "ServerUpdate": "00:00"
+    },
+    "NTETravel": {
+      "EnableFastTravel": true,
+      "TravelMethod": "auto"
+    },
+    "Storage": {
+      "Storage": {}
+    }
+  },
+  "Heist": {
+    "Scheduler": {
+      "Enable": false,
+      "NextRun": "2020-01-01 00:00:00",
+      "Command": "Heist",
+      "SuccessInterval": 0,
+      "FailureInterval": 120,
+      "ServerUpdate": "00:00"
+    },
+    "NTEHeist": {
+      "EnableHeist": false,
+      "HeistKeyInterval": 0.05
     },
     "Storage": {
       "Storage": {}

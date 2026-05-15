@@ -48,8 +48,7 @@ class AlConfig(GeneratedConfig):
         if key in self.bound:
             path = self.bound[key]
             self.modified[path] = value
-        else:
-            super().__setattr__(key, value)
+        super().__setattr__(key, value)
     
     def __init__(self, config_name, task=None):
         self.config_name = config_name
@@ -59,25 +58,45 @@ class AlConfig(GeneratedConfig):
         
         # Read user config JSON
         self.load()
-        
-        # Bind attributes
+
+        # Bind attributes (track initially loaded values, then clear)
         self._bind_attributes()
+        self.modified.clear()
     
     def load(self):
-        """Load user config from JSON file."""
+        """Load user config from JSON file, correcting against args.json."""
+        from module.config.config_updater import ConfigUpdater
+
         path = filepath_config(self.config_name)
-        self.data = read_file(path)
-        if not self.data:
-            # Use template as fallback
+        raw = read_file(path)
+        if raw:
+            # Existing user config — correct it against current args.json
+            updater = ConfigUpdater()
+            self.data = updater.config_update(raw, is_template=False)
+            # Write back the corrected config
+            write_file(path, self.data)
+            logger.info(f'Loaded and corrected config: {path}')
+        else:
+            # No user config yet — use template as fallback
             template_path = os.path.join(os.path.dirname(__file__), '..', '..', 'config', 'template.json')
             self.data = read_file(template_path)
-        logger.info(f'Loaded config: {path}')
+            logger.info(f'Loaded config from template: {template_path}')
     
     def save(self):
-        """Save modified config to JSON file."""
+        """Save modified config to JSON file, with side-effect callbacks."""
+        from module.config.config_updater import ConfigUpdater
+
         path = filepath_config(self.config_name)
         self._apply_modifications()
+
+        # Run save callbacks for each modified key
+        updater = ConfigUpdater()
+        for key, value in list(self.modified.items()):
+            for cb_key, cb_value in updater.save_callback(key, value):
+                deep_set(self.data, keys=cb_key.split('.'), value=cb_value)
+
         write_file(path, self.data)
+        self.modified.clear()
         logger.info(f'Saved config: {path}')
     
     def _bind_attributes(self):

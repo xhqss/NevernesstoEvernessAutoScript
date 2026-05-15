@@ -44,17 +44,40 @@ def deep_pop(d, keys, default=None):
         return default
 
 
-def deep_iter(d, depth=1, min_depth=1, path=None):
-    """Iterate nested dict with path tracking."""
+def deep_iter(d, depth=3, min_depth=None, path=None):
+    """Iterate nested dict yielding key paths and values at target depths.
+
+    Args:
+        d: Nested dict to iterate
+        depth (int): Maximum depth to traverse
+        min_depth (int): Minimum depth to yield at (defaults to depth)
+
+    Yields:
+        Tuple[List[str], Any]: Key path and value at target depth
+    """
+    if min_depth is None:
+        min_depth = depth
     if path is None:
         path = []
-    if depth <= 0:
-        yield path, d
+
+    if not hasattr(d, 'items'):
         return
-    if hasattr(d, 'items'):
+
+    if depth == 1:
         for k, v in d.items():
-            new_path = path + [k]
-            if min_depth <= len(new_path):
-                yield new_path, v
-            if depth > 1:
-                yield from deep_iter(v, depth - 1, min_depth - 1 if min_depth > 1 else 0, new_path)
+            yield path + [k], v
+        return
+
+    # Process current level
+    if min_depth <= 1:
+        for k, v in d.items():
+            yield path + [k], v
+
+    # Recurse into dict values
+    for k, v in d.items():
+        if isinstance(v, dict):
+            yield from deep_iter(v, depth=depth - 1, min_depth=min_depth - 1,
+                                 path=path + [k])
+        elif min_depth - 1 <= 0 and depth > 1:
+            # Non-dict value at a level we should yield
+            pass  # Already yielded above if min_depth <= 1

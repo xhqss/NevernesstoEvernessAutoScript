@@ -1,5 +1,63 @@
-# Override values (non-modifiable arguments)
+# ====================
+# al-script 锁定/隐藏值
+# ====================
+# 这些值不可由用户修改，或强制隐藏
+
 DefaultTask:
+  Scheduler:
+    Command:
+      type: state
+      display: hide
+
+Launcher:
+  Scheduler:
+    Command:
+      type: state
+      display: hide
+
+Daily:
+  Scheduler:
+    Command:
+      type: state
+      display: hide
+
+Fishing:
+  Scheduler:
+    Command:
+      type: state
+      display: hide
+
+Anomaly:
+  Scheduler:
+    Command:
+      type: state
+      display: hide
+
+Rhythm:
+  Scheduler:
+    Command:
+      type: state
+      display: hide
+
+AutoCombat:
+  Scheduler:
+    Command:
+      type: state
+      display: hide
+
+SkipDialog:
+  Scheduler:
+    Command:
+      type: state
+      display: hide
+
+FastTravel:
+  Scheduler:
+    Command:
+      type: state
+      display: hide
+
+Heist:
   Scheduler:
     Command:
       type: state

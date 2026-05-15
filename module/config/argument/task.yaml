@@ -1,6 +1,52 @@
-# Task definitions
-# Each task group contains tasks that reference argument.yaml groups
+# ====================
+# al-script 任务定义
+# ====================
+# 格式: {TaskName: [GroupName, ...]}
+# 每个任务只获得列出的参数组 + Storage
 
 Default:
+  menu: collapse
+  page: setting
   tasks:
-    - DefaultTask
+    DefaultTask:
+    - Scheduler
+    - Device
+    - Ocr
+    - Window
+    - NTEKeyBinding
+    - NTEMonthlyCard
+    - NTESoundTrigger
+    - NTELauncher
+
+NTE:
+  menu: collapse
+  page: setting
+  tasks:
+    Launcher:
+    - Scheduler
+    - Window
+    - NTELauncher
+    Daily:
+    - Scheduler
+    - NTEDaily
+    Fishing:
+    - Scheduler
+    - NTEFishing
+    Anomaly:
+    - Scheduler
+    - NTEAnomaly
+    Rhythm:
+    - Scheduler
+    - NTERhythm
+    AutoCombat:
+    - Scheduler
+    - NTECombat
+    SkipDialog:
+    - Scheduler
+    - NTEDialog
+    FastTravel:
+    - Scheduler
+    - NTETravel
+    Heist:
+    - Scheduler
+    - NTEHeist

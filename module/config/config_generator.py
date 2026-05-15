@@ -4,9 +4,13 @@ Adapted from Alas module/config/config_updater.py
 """
 
 import os
+import sys
 import json
 import copy
 from datetime import datetime
+
+# Ensure project root is on sys.path (for direct execution in PyCharm / CLI)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from module.config.deep import deep_get, deep_set, deep_iter
 from module.config.utils import (
@@ -74,7 +78,10 @@ class ConfigGenerator:
     def args(self):
         """
         Merge all YAML definitions into args.json.
-        
+
+        ALAS-style task.yaml: each task lists its specific argument groups.
+        Tasks only get the groups they declare, plus Storage.
+
         Flow:
             task.yaml ---+
         argument.yaml ---+-----> args.json
@@ -82,52 +89,54 @@ class ConfigGenerator:
          default.yaml ---+
         """
         data = {}
-        
-        # Add all task groups
-        # For each task name from task.yaml, add all groups from argument.yaml
-        task_names = set()
+
+        # Parse task.yaml — each task name maps to its assigned groups
+        # Format: {TaskGroup: {tasks: {TaskName: [GroupA, GroupB, ...]}}}
+        task_groups = {}  # {task_name: [group_name, ...]}
+
         for path, groups in deep_iter(self.task, min_depth=1, depth=3):
             if 'tasks' not in path:
                 continue
             if isinstance(groups, list):
-                for task_name in groups:
-                    task_names.add(task_name)
-        
-        # Default groups for every task
-        default_groups = list(self.argument.keys())
-        
-        for task_name in task_names:
-            for group_name in default_groups:
-                if group_name not in self.argument:
-                    continue
+                # path = [TaskGroup, 'tasks', TaskName]
+                task = path[2]
+                valid_groups = [g for g in groups if g in self.argument]
+                for g in groups:
+                    if g not in self.argument:
+                        print(f'  `{task}.{g}` is not related to any argument group')
+                if 'Storage' in self.argument and 'Storage' not in valid_groups:
+                    valid_groups.append('Storage')
+                task_groups[task] = valid_groups
+
+        # Build args: each task only gets its assigned groups
+        for task_name, group_names in task_groups.items():
+            for group_name in group_names:
                 deep_set(
-                    data, 
-                    keys=[task_name, group_name], 
+                    data,
+                    keys=[task_name, group_name],
                     value=copy.deepcopy(self.argument[group_name])
                 )
-        
-        # Apply defaults
+
+        # Apply defaults — only for groups already assigned to the task
         for p, v in deep_iter(self.default, depth=3):
-            # p should be [task, group, arg] at depth 3
-            if len(p) == 3:
+            if len(p) == 3 and deep_get(data, keys=p[:2]) is not None:
                 deep_set(data, keys=p + ['value'], value=v)
-        
+
         # Apply overrides
         for p, v in deep_iter(self.override, depth=3):
-            # Only apply at arg level (depth 3: [task, group, arg])
             if len(p) == 3 and isinstance(v, dict):
                 for arg_k, arg_v in v.items():
                     deep_set(data, keys=p + [arg_k], value=arg_v)
             elif len(p) == 3:
                 deep_set(data, keys=p + ['value'], value=v)
                 deep_set(data, keys=p + ['display'], value='hide')
-        
+
         # Set command for each task
-        for task_name in task_names:
+        for task_name in task_groups:
             if deep_get(data, keys=f'{task_name}.Scheduler.Command'):
                 deep_set(data, keys=f'{task_name}.Scheduler.Command.value', value=task_name)
                 deep_set(data, keys=f'{task_name}.Scheduler.Command.display', value='hide')
-        
+
         return data
     
     def generate_args_json(self):
@@ -187,33 +196,17 @@ class ConfigGenerator:
         with open(path, 'w', encoding='utf-8') as f:
             f.write(code)
         print(f'Generated: {path}')
-        
-        # Write template.json
-        template = {}
-        for task, groups in args.items():
-            template[task] = {}
-            for group, args_dict in groups.items():
-                template[task][group] = {}
-                for arg_name, arg_data in args_dict.items():
-                    value = arg_data.get('value')
-                    if isinstance(value, datetime):
-                        value = value.strftime('%Y-%m-%d %H:%M:%S')
-                    template[task][group][arg_name] = value
-        
-        template_path = os.path.join(os.path.dirname(__file__), '..', '..', 'config', 'template.json')
-        with open(template_path, 'w', encoding='utf-8') as f:
-            json.dump(template, f, indent=2, ensure_ascii=False, default=str)
-        print(f'Generated: {template_path}')
-        
+
         return code
 
 
 def generate_all():
-    """Generate all config files at once."""
+    """Generate args.json and config_generated.py from YAML definitions."""
     gen = ConfigGenerator()
     gen.generate_args_json()
     gen.generate_code()
 
 
 if __name__ == '__main__':
+    # Generation only — use config_updater.py for the full pipeline (generation + correction)
     generate_all()

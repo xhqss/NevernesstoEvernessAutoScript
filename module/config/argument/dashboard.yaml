@@ -1,3 +1,6 @@
 # Dashboard config definition
+# Groups shown on the Dashboard page
 Dashboard:
-  Tasks: []
+- Scheduler
+- Device
+- NTEKeyBinding

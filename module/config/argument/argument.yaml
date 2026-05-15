@@ -2,11 +2,15 @@
 # al-script 参数定义
 # ====================
 
+# --------------------
+# Framework Groups
+# --------------------
+
 Scheduler:
   Enable:
     type: checkbox
     value: false
-    option: [ true, false ]
+    option: [true, false]
   NextRun: 2020-01-01 00:00:00
   Command: Task
   SuccessInterval:
@@ -15,25 +19,28 @@ Scheduler:
   FailureInterval:
     value: 120
     display: hide
+  ServerUpdate:
+    value: "00:00"
+    display: hide
 
 Device:
   Platform:
     value: auto
-    option: [ auto, pc, adb ]
+    option: [auto, pc, adb]
   Serial:
     value: auto
     valuetype: str
   ScreenshotMethod:
     value: auto
-    option: [ auto, ADB, WindowsGraphics, BitBlt, scrcpy, nemu_ipc ]
+    option: [auto, ADB, WindowsGraphics, BitBlt, scrcpy, nemu_ipc]
   ControlMethod:
     value: auto
-    option: [ auto, ADB, PostMessage, PyDirectInput, minitouch, maatouch ]
+    option: [auto, ADB, PostMessage, PyDirectInput, minitouch, maatouch]
 
 Ocr:
   Engine:
     value: default
-    option: [ default, cnocr, paddle, rapid, dgocr, onnx ]
+    option: [default, cnocr, paddle, rapid, dgocr, onnx]
   TargetHeight:
     value: 0
     display: hide
@@ -55,3 +62,160 @@ Storage:
     value: {}
     valuetype: ignore
     display: disabled
+
+# --------------------
+# NTE Game-Specific Groups
+# --------------------
+
+NTEKeyBinding:
+  SkillKey:
+    value: "e"
+    valuetype: str
+  UltimateKey:
+    value: "q"
+    valuetype: str
+  ArcKey:
+    value: "r"
+    valuetype: str
+  DodgeKey:
+    value: "shift"
+    valuetype: str
+  InteractKey:
+    value: "f"
+    valuetype: str
+
+NTEMonthlyCard:
+  CheckMonthlyCard:
+    type: checkbox
+    value: true
+    option: [true, false]
+  MonthlyCardTime:
+    value: 5
+    valuetype: int
+
+NTESoundTrigger:
+  EnableSoundTrigger:
+    type: checkbox
+    value: true
+    option: [true, false]
+  DodgeAllAttacks:
+    type: checkbox
+    value: true
+    option: [true, false]
+  DodgeThreshold:
+    value: 0.13
+    valuetype: float
+  CounterAttackThreshold:
+    value: 0.12
+    valuetype: float
+
+NTEFishing:
+  EnableFishing:
+    type: checkbox
+    value: false
+    option: [true, false]
+  SellFish:
+    type: checkbox
+    value: true
+    option: [true, false]
+  BaitRestock:
+    type: checkbox
+    value: true
+    option: [true, false]
+  FishingMode:
+    value: normal
+    option: [normal, aggressive, manual]
+
+NTECombat:
+  EnableCombat:
+    type: checkbox
+    value: true
+    option: [true, false]
+  AutoDodge:
+    type: checkbox
+    value: true
+    option: [true, false]
+  AutoCounter:
+    type: checkbox
+    value: true
+    option: [true, false]
+  CombatMode:
+    value: auto
+    option: [auto, manual, semi]
+
+NTERhythm:
+  EnableRhythm:
+    type: checkbox
+    value: false
+    option: [true, false]
+  RhythmDifficulty:
+    value: normal
+    option: [normal, hard, expert]
+
+NTEAnomaly:
+  EnableAnomaly:
+    type: checkbox
+    value: false
+    option: [true, false]
+  AnomalyType:
+    value: all
+    option: [all, normal, hard, weekly]
+  AnomalyCount:
+    value: 3
+    valuetype: int
+
+NTEDaily:
+  EnableDaily:
+    type: checkbox
+    value: true
+    option: [true, false]
+  CollectMail:
+    type: checkbox
+    value: true
+    option: [true, false]
+  CollectBattlepass:
+    type: checkbox
+    value: true
+    option: [true, false]
+  CollectActivity:
+    type: checkbox
+    value: true
+    option: [true, false]
+
+NTELauncher:
+  GameExe:
+    value: "HTGame.exe"
+    valuetype: str
+  GameClass:
+    value: "UnrealWindow"
+    valuetype: str
+  LaunchMethod:
+    value: auto
+    option: [auto, steam, standalone]
+
+NTEHeist:
+  EnableHeist:
+    type: checkbox
+    value: false
+    option: [true, false]
+  HeistKeyInterval:
+    value: 0.05
+    valuetype: float
+
+NTETravel:
+  EnableFastTravel:
+    type: checkbox
+    value: true
+    option: [true, false]
+  TravelMethod:
+    value: auto
+    option: [auto, map, quest]
+
+NTEDialog:
+  EnableSkipDialog:
+    type: checkbox
+    value: true
+    option: [true, false]
+  DialogSpeed:
+    value: fast
+    option: [fast, normal]

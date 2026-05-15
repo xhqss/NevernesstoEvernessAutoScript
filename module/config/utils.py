@@ -81,6 +81,35 @@ def data_to_type(value, arg=''):
         return 'input'
 
 
+def parse_value(value, data):
+    """Convert string to proper type and validate against option list."""
+    if 'option' in data:
+        if value not in data['option']:
+            return data['value']
+    if isinstance(value, str):
+        if value == '':
+            return None
+        if value == 'true' or value == 'True':
+            return True
+        if value == 'false' or value == 'False':
+            return False
+        if '.' in value:
+            try:
+                return float(value)
+            except ValueError:
+                pass
+        else:
+            try:
+                return int(value)
+            except ValueError:
+                pass
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            pass
+    return value
+
+
 def dict_to_kv(d, prefix=''):
     """Convert nested dict to flat key=value list."""
     result = []
