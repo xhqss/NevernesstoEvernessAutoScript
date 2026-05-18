@@ -1,0 +1,28 @@
+/* Dark theme overrides for NTE GUI */
+
+TitleLabel,
+StrongBodyLabel {
+    color: white;
+}
+
+Card>#card {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+Card>#card:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#titleLabel {
+    color: white;
+    font: 14px 'Segoe UI', 'Microsoft YaHei', 'PingFang SC';
+    font-weight: bold;
+}
+
+#contentLabel {
+    color: rgb(208, 208, 208);
+    font: 12px 'Segoe UI', 'Microsoft YaHei', 'PingFang SC';
+}

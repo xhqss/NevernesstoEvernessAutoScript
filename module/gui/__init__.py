@@ -1,6 +1,6 @@
 """
 GUI module for al-script.
-PySide6-based interface with task management, template viewer, debug tools.
+qfluentwidgets-based interface with task management, template viewer, debug tools.
 """
 
 from module.gui.communicate import communicate, Communicate

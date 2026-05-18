@@ -1,32 +1,36 @@
 """
-Main window for NevernesstoEvernessAutoScript GUI.
-v2.0 — OKLCH dynamic theme, auto-save, Explorer toolbar, card-based config.
+MainWindow for NevernesstoEvernessAutoScript — v2.0 qfluentwidgets edition.
+Follows ok-nte's MSFluentWindow + NavigationInterface + ExpandSettingCard pattern.
 
-This is the shell that wires together: sidebar, toolbar, tabs, ConfigManager,
-TaskConfigTab, and the communication bus. Heavy logic lives in config_manager.py
-and task_config_tab.py.
+The shell wires together: theme, toolbar, navigation tabs, TaskConfigTab,
+and the communication bus. Heavy logic lives in tabs/ and config_widgets.py.
 """
 
+import json
 import os
-import sys
+import copy
 import shutil
 
 from PySide6.QtCore import Qt, QTimer, Slot
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QListWidget, QTextEdit, QGroupBox, QFormLayout,
-    QLineEdit, QComboBox, QCheckBox, QScrollArea, QTabWidget,
-    QFileDialog, QFrame, QTreeWidget, QTreeWidgetItem, QDockWidget,
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
+    QFileDialog, QDockWidget, QTreeWidget, QTreeWidgetItem, QTextEdit,
+    QScrollArea,
+)
+from qfluentwidgets import (
+    MSFluentWindow, NavigationInterface, NavigationItemPosition,
+    FluentIcon, PushButton, ComboBox, LineEdit, SwitchButton,
+    CardWidget, SubtitleLabel, setTheme, Theme, qconfig,
 )
 
+from module.config import AlConfig
+from module.config.utils import read_file, write_file, filepath_config
 from module.gui.communicate import communicate
 from module.gui.overlay import ScreenshotViewer
-from module.gui.theme import get_theme
-from module.gui.toolbar import ExplorerToolbar
 from module.gui.instance_panel import InstancePanel
-from module.gui.config_manager import ConfigManager
-from module.gui.task_config_tab import TaskConfigTab
-from module.i18n import translator, set_language
+from module.gui.tabs.task_config import TaskConfigTab
+from module.i18n import set_language
 from module.i18n import tr as _tr
 from module.util.logger import logger
 
@@ -35,8 +39,113 @@ def tr(key, default=None):
     return _tr(key, default)
 
 
-class MainWindow(QMainWindow):
-    """v2.0 — Modernized main window."""
+# ═══════════════════════════════════════════════
+#  Tab — simple scrollable wrapper
+# ═══════════════════════════════════════════════
+
+class Tab(QScrollArea):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.view = QWidget()
+        self.vBoxLayout = QVBoxLayout(self.view)
+        self.vBoxLayout.setContentsMargins(24, 16, 24, 16)
+        self.vBoxLayout.setSpacing(8)
+        self.setWidget(self.view)
+        self.setWidgetResizable(True)
+        self.setObjectName('view')
+
+    def add_widget(self, w):
+        self.vBoxLayout.addWidget(w)
+
+    def add_stretch(self):
+        self.vBoxLayout.addStretch()
+
+
+# ═══════════════════════════════════════════════
+#  ExplorerToolbar
+# ═══════════════════════════════════════════════
+
+class ExplorerToolbar(QFrame):
+    config_switch = Slot(str)
+    config_new = Slot(str)
+    config_save = Slot(str)
+    config_delete = Slot(str)
+    config_export = Slot(str)
+    config_import = Slot()
+    multi_instance = Slot()
+
+    def __init__(self, config_name='template', parent=None):
+        super().__init__(parent)
+        self._config_name = config_name
+        self._init_ui()
+
+    def _init_ui(self):
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(12, 4, 12, 4)
+        layout.setSpacing(6)
+
+        layout.addWidget(QLabel('\U0001F4C1  ' + tr('Configs') + ' >'))
+
+        self._combo = ComboBox()
+        self._combo.setMinimumWidth(200)
+        self._combo.currentTextChanged.connect(
+            lambda n: self.config_switch.emit(n) if n else None
+        )
+        layout.addWidget(self._combo)
+
+        btn_new = PushButton(FluentIcon.ADD, tr('New'))
+        btn_new.clicked.connect(lambda: self._on_new('blank'))
+        layout.addWidget(btn_new)
+
+        btn_save = PushButton(FluentIcon.SAVE_AS, tr('Save As'))
+        btn_save.clicked.connect(lambda: self._on_save_as())
+        layout.addWidget(btn_save)
+
+        layout.addStretch()
+
+        btn_folder = PushButton(FluentIcon.FOLDER, '')
+        btn_folder.setToolTip(tr('Open Config Folder'))
+        btn_folder.clicked.connect(lambda: os.startfile(os.path.abspath('./config')))
+        layout.addWidget(btn_folder)
+
+        btn_inst = PushButton(FluentIcon.PEOPLE, '')
+        btn_inst.setToolTip(tr('Multi-Instance Manager'))
+        btn_inst.clicked.connect(lambda: self.multi_instance.emit())
+        layout.addWidget(btn_inst)
+
+        btn_import = PushButton(FluentIcon.DOWNLOAD, '')
+        btn_import.setToolTip(tr('Import Config'))
+        btn_import.clicked.connect(lambda: self.config_import.emit())
+        layout.addWidget(btn_import)
+
+    def _on_new(self, mode):
+        from PySide6.QtWidgets import QInputDialog
+        name, ok = QInputDialog.getText(self, tr('New Config'),
+                                         tr('Config Name') + ':')
+        if ok and name.strip():
+            self.config_new.emit(name.strip())
+
+    def _on_save_as(self):
+        from PySide6.QtWidgets import QInputDialog
+        name, ok = QInputDialog.getText(self, tr('Save As'),
+                                         tr('Config Name') + ':')
+        if ok and name.strip():
+            self.config_save.emit(name.strip())
+
+    def set_config_list(self, names):
+        self._combo.clear()
+        self._combo.addItems(names)
+
+    def set_current(self, name):
+        self._config_name = name
+        self._combo.setCurrentText(name)
+
+
+# ═══════════════════════════════════════════════
+#  MainWindow
+# ═══════════════════════════════════════════════
+
+class MainWindow(MSFluentWindow):
 
     def __init__(self, config=None):
         super().__init__()
@@ -48,442 +157,283 @@ class MainWindow(QMainWindow):
             self.config_name = self.config.get('config_name', 'template')
             self._full_config = config
 
-        # Central managers
-        self._cm = ConfigManager(self.config_name)
-        self._theme = get_theme()
-        self._theme_mode = 'dark'
-        self._current_lang = 'zh_CN'
-
+        self._al_config = AlConfig(self.config_name)
+        self._args_data = self._load_args_json()
+        self._gui_labels = self._load_gui_labels()
         self.executor = None
-        self._boxes = []
 
-        self._init_ui()
-        self._init_task_tab()
-        self._connect_signals()
-        self._cm.set_unsaved_dot(self._unsaved_dot)
-        self._cm.set_status_label(self.status_bar_label)
-        self._cm.set_config_changed_callback(self._on_config_name_changed)
-        self._task_tab.load_tasks()
-        self._apply_language_from_config()
-        self._apply_theme()
-
-    # ═══════════════════════════════════════════════
-    #  Theme / Language
-    # ═══════════════════════════════════════════════
-
-    def _apply_theme(self):
-        app = QApplication.instance()
-        if app:
-            app.setStyleSheet(self._theme.generate_qss())
-
-    def _switch_theme(self, mode: str):
-        self._theme_mode = mode
-        self._theme.mode = mode
-        self._apply_theme()
-        communicate.theme_changed.emit(mode)
-
-    def _apply_language_from_config(self):
-        lang = 'zh_CN'
-        import locale
-        try:
-            sys_lang = locale.getdefaultlocale()[0]
-            if sys_lang and sys_lang.startswith('zh'):
-                lang = 'zh_CN'
-        except Exception:
-            pass
-        self._switch_language(lang)
-        if hasattr(self, 'setting_language'):
-            idx = 0 if lang == 'en' else 1
-            self.setting_language.blockSignals(True)
-            self.setting_language.setCurrentIndex(idx)
-            self.setting_language.blockSignals(False)
-
-    # ═══════════════════════════════════════════════
-    #  UI Construction
-    # ═══════════════════════════════════════════════
-
-    def _init_ui(self):
-        gui_title = self._full_config.get('gui_title', 'al-script')
+        gui_title = self._full_config.get('gui_title', 'NTE AutoScript')
         self.setWindowTitle(f'{gui_title} - {self.config_name}')
         self.setMinimumSize(1200, 800)
         self.resize(1400, 900)
 
-        central = QWidget()
-        self.setCentralWidget(central)
-        main_layout = QVBoxLayout(central)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
+        self._setup_navigation()
+        self._connect_signals()
+        self._load_task_list()
 
-        # Toolbar
-        self._toolbar = ExplorerToolbar(config_name=self.config_name)
-        main_layout.addWidget(self._toolbar)
+    # ── data ──────────────────────────────────────────────
 
-        # Body: sidebar + content
-        body = QWidget()
-        body_layout = QHBoxLayout(body)
-        body_layout.setContentsMargins(0, 0, 0, 0)
-        body_layout.setSpacing(0)
-        body_layout.addWidget(self._create_sidebar())
-        body_layout.addWidget(self._create_content(), 1)
-        main_layout.addWidget(body, 1)
+    def _load_args_json(self):
+        paths = [
+            os.path.join(os.path.dirname(__file__), '..', 'config', 'argument', 'args.json'),
+            os.path.join(os.path.dirname(__file__), '..', '..', 'module', 'config', 'argument', 'args.json'),
+        ]
+        for p in paths:
+            if os.path.exists(p):
+                try:
+                    with open(p, 'r', encoding='utf-8') as f:
+                        return json.load(f)
+                except Exception:
+                    pass
+        return {}
 
-        # Bottom bar
-        self._create_bottom_bar(main_layout)
+    def _load_gui_labels(self) -> dict:
+        import yaml
+        paths = [
+            os.path.join(os.path.dirname(__file__), '..', 'config', 'argument', 'gui.yaml'),
+            os.path.join(os.path.dirname(__file__), '..', '..', 'module', 'config', 'argument', 'gui.yaml'),
+        ]
+        for p in paths:
+            if os.path.exists(p):
+                try:
+                    with open(p, 'r', encoding='utf-8') as f:
+                        return yaml.safe_load(f) or {}
+                except Exception:
+                    pass
+        return {}
 
-    def _create_sidebar(self):
-        sidebar = QFrame()
-        sidebar.setFixedWidth(220)
-        sidebar.setObjectName('sidebar')
+    # ── navigation / tabs ──────────────────────────────────
 
-        layout = QVBoxLayout(sidebar)
-        layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(6)
+    def _setup_navigation(self):
+        self._toolbar = ExplorerToolbar(self.config_name)
+        self._toolbar.setMinimumHeight(40)
 
-        gui_title = self._full_config.get('gui_title', 'al-script')
-        title = QLabel(gui_title)
-        title.setStyleSheet('font-size: 17px; font-weight: bold; padding: 8px 0;')
-        layout.addWidget(title)
-
-        d = QFrame()
-        d.setFrameShape(QFrame.HLine)
-        d.setStyleSheet('border-color: rgba(128,128,160,0.2);')
-        layout.addWidget(d)
-
-        task_header = QLabel(tr('Tasks'))
-        task_header.setStyleSheet('font-size: 11px; text-transform: uppercase; padding: 4px 0;')
-        layout.addWidget(task_header)
-
-        self.task_list = QListWidget()
-        self.task_list.setStyleSheet('QListWidget { border: none; outline: none; }')
-        layout.addWidget(self.task_list)
-        layout.addSpacing(8)
-
-        self.btn_start = QPushButton(tr('Start'))
-        self.btn_start.setObjectName('btn_start')
-        layout.addWidget(self.btn_start)
-        self.btn_stop = QPushButton(tr('Stop'))
-        self.btn_stop.setObjectName('btn_stop')
-        self.btn_stop.setEnabled(False)
-        layout.addWidget(self.btn_stop)
-        self.btn_pause = QPushButton(tr('Pause'))
-        self.btn_pause.setObjectName('btn_pause')
-        self.btn_pause.setEnabled(False)
-        layout.addWidget(self.btn_pause)
-        layout.addStretch()
-
-        self.status_indicator = QLabel(tr('Idle'))
-        self.status_indicator.setStyleSheet('font-size: 12px; padding: 5px;')
-        layout.addWidget(self.status_indicator)
-        return sidebar
-
-    def _create_content(self):
-        self.tabs = QTabWidget()
-        self._create_task_config_tab()
-        self._create_template_tab()
-        self._create_debug_tab()
-        self._create_log_tab()
-        self._create_settings_tab()
-        self._create_about_tab()
-        return self.tabs
-
-    def _init_task_tab(self):
         self._task_tab = TaskConfigTab(
-            self._cm, self.task_list, self.config_scroll,
-            self.config_container, self.config_layout
+            self._al_config, self._args_data, self._gui_labels
         )
-        self._cm.set_config_cards(self._task_tab.cards())
+        self._template_tab = self._make_template_tab()
+        self._debug_tab = self._make_debug_tab()
+        self._log_tab = self._make_log_tab()
+        self._settings_tab = self._make_settings_tab()
+        self._about_tab = self._make_about_tab()
 
-    def _create_task_config_tab(self):
-        self.config_scroll = QScrollArea()
-        self.config_scroll.setWidgetResizable(True)
-        self.config_container = QWidget()
-        self.config_layout = QVBoxLayout(self.config_container)
-        self.config_layout.setSpacing(4)
-        self.config_layout.setContentsMargins(20, 20, 20, 20)
-        self.config_scroll.setWidget(self.config_container)
-        self.tabs.addTab(self.config_scroll, tr('Task Config'))
+        pos = NavigationItemPosition
+        self.addSubInterface(self._task_tab, FluentIcon.APPLICATION, tr('Task Config'))
+        self.addSubInterface(self._template_tab, FluentIcon.PHOTO, tr('Templates'))
+        self.addSubInterface(self._debug_tab, FluentIcon.DEVELOPER_TOOLS, tr('Debug'))
+        self.addSubInterface(self._log_tab, FluentIcon.DOCUMENT, tr('Log'))
+        self.addSubInterface(self._about_tab, FluentIcon.INFO, tr('About'),
+                             position=pos.BOTTOM)
+        self.addSubInterface(self._settings_tab, FluentIcon.SETTING, tr('Settings'),
+                             position=pos.BOTTOM)
 
-    def _create_template_tab(self):
-        w = QWidget()
-        layout = QVBoxLayout(w)
-        layout.setContentsMargins(20, 20, 20, 20)
+    # ── tab factories ──────────────────────────────────────
+
+    def _make_template_tab(self):
+        t = Tab()
         self.template_tree = QTreeWidget()
-        self.template_tree.setHeaderLabels([tr('Name'), tr('Type'), tr('Size'), tr('Path')])
-        layout.addWidget(self.template_tree)
+        self.template_tree.setHeaderLabels([
+            tr('Name'), tr('Type'), tr('Size'), tr('Path')
+        ])
+        t.add_widget(self.template_tree)
+        bar = QHBoxLayout()
+        bar.addStretch()
+        b1 = PushButton(FluentIcon.SYNC, tr('Refresh Templates'))
+        b1.clicked.connect(self._refresh_templates)
+        bar.addWidget(b1)
+        b2 = PushButton(FluentIcon.ADD, tr('Import PNG'))
+        b2.clicked.connect(self._import_template)
+        bar.addWidget(b2)
+        tw = QWidget()
+        tw.setLayout(bar)
+        t.add_widget(tw)
+        t.add_stretch()
+        return t
 
-        btn_layout = QHBoxLayout()
-        btn_refresh = QPushButton(tr('Refresh Templates'))
-        btn_refresh.clicked.connect(self._refresh_templates)
-        btn_layout.addWidget(btn_refresh)
-        btn_import = QPushButton(tr('Import PNG'))
-        btn_import.clicked.connect(self._import_template)
-        btn_layout.addWidget(btn_import)
-        btn_layout.addStretch()
-        layout.addLayout(btn_layout)
-        layout.addStretch()
-        self.tabs.addTab(w, tr('Templates'))
-
-    def _create_debug_tab(self):
-        w = QWidget()
-        layout = QVBoxLayout(w)
-        layout.setContentsMargins(20, 20, 20, 20)
+    def _make_debug_tab(self):
+        t = Tab()
         self.screenshot_viewer = ScreenshotViewer()
         self.screenshot_viewer.setMinimumSize(640, 360)
-        layout.addWidget(self.screenshot_viewer)
-
-        info_layout = QHBoxLayout()
+        t.add_widget(self.screenshot_viewer)
+        bar = QHBoxLayout()
         self.debug_info_label = QLabel(tr('No screenshot'))
-        info_layout.addWidget(self.debug_info_label)
-        info_layout.addStretch()
-        btn_screenshot = QPushButton(tr('Take Screenshot'))
-        btn_screenshot.clicked.connect(lambda: communicate.task_started.emit('debug_screenshot'))
-        info_layout.addWidget(btn_screenshot)
-        btn_clear = QPushButton(tr('Clear'))
-        btn_clear.clicked.connect(lambda: self.screenshot_viewer.clear())
-        info_layout.addWidget(btn_clear)
-        layout.addLayout(info_layout)
-        self.tabs.addTab(w, tr('Debug'))
+        bar.addWidget(self.debug_info_label)
+        bar.addStretch()
+        b1 = PushButton(FluentIcon.CAMERA, tr('Take Screenshot'))
+        b1.clicked.connect(lambda: communicate.task_started.emit('debug_screenshot'))
+        bar.addWidget(b1)
+        b2 = PushButton(FluentIcon.DELETE, tr('Clear'))
+        b2.clicked.connect(lambda: self.screenshot_viewer.clear())
+        bar.addWidget(b2)
+        tw = QWidget()
+        tw.setLayout(bar)
+        t.add_widget(tw)
+        return t
 
-    def _create_log_tab(self):
+    def _make_log_tab(self):
+        t = Tab()
         self.log_view = QTextEdit()
         self.log_view.setReadOnly(True)
         self.log_view.setObjectName('logView')
-        self.tabs.addTab(self.log_view, tr('Log'))
+        t.add_widget(self.log_view)
+        return t
 
-    def _create_settings_tab(self):
-        w = QWidget()
-        layout = QVBoxLayout(w)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(12)
+    def _make_settings_tab(self):
+        t = Tab()
 
-        # General
-        g = QGroupBox(tr('General'))
-        f = QFormLayout()
-        f.setSpacing(10)
-        self.setting_theme = QComboBox()
-        self.setting_theme.addItems([tr('Dark Mode'), tr('Light Mode')])
-        f.addRow(tr('Theme') + ':', self.setting_theme)
-        self.setting_language = QComboBox()
-        self.setting_language.addItems(['English', '中文'])
-        self.setting_language.setCurrentIndex(1)
-        f.addRow(tr('Language') + ':', self.setting_language)
-        self.setting_auto_start = QCheckBox()
-        f.addRow(tr('Auto-start on launch') + ':', self.setting_auto_start)
-        g.setLayout(f)
-        layout.addWidget(g)
+        general = CardWidget()
+        gl = QVBoxLayout(general)
+        gl.addWidget(SubtitleLabel(tr('General')))
 
-        # Debug
-        dg = QGroupBox(tr('Debug'))
-        df = QFormLayout()
-        df.setSpacing(10)
-        self.setting_use_overlay = QCheckBox()
-        df.addRow(tr('Enable debug overlay') + ':', self.setting_use_overlay)
-        self.setting_show_logs_overlay = QCheckBox()
-        df.addRow(tr('Show logs on overlay') + ':', self.setting_show_logs_overlay)
-        dg.setLayout(df)
-        layout.addWidget(dg)
+        for label, combo_items, callback in [
+            (tr('Theme'),
+             [tr('Dark Mode'), tr('Light Mode')],
+             lambda i: setTheme(Theme.DARK if i == 0 else Theme.LIGHT)),
+            (tr('Language'),
+             ['中文', 'English'],
+             lambda i: set_language('zh_CN' if i == 0 else 'en')),
+        ]:
+            row = QWidget()
+            rl = QHBoxLayout(row)
+            rl.addWidget(QLabel(label + ':'))
+            cb = ComboBox()
+            cb.addItems(combo_items)
+            cb.currentIndexChanged.connect(callback)
+            rl.addWidget(cb)
+            rl.addStretch()
+            gl.addWidget(row)
 
-        # Paths
-        pg = QGroupBox(tr('Paths'))
-        pf = QFormLayout()
-        pf.setSpacing(10)
-        self.setting_config_dir = QLineEdit('./config')
-        pf.addRow(tr('Config directory') + ':', self.setting_config_dir)
-        self.setting_assets_dir = QLineEdit('./assets')
-        pf.addRow(tr('Assets directory') + ':', self.setting_assets_dir)
-        pg.setLayout(pf)
-        layout.addWidget(pg)
-        layout.addStretch()
-        self.tabs.addTab(w, tr('Settings'))
+        t.add_widget(general)
 
-    def _create_about_tab(self):
-        w = QWidget()
-        layout = QVBoxLayout(w)
-        layout.setContentsMargins(40, 40, 40, 40)
-        layout.setSpacing(12)
-        gui_title = self._full_config.get('gui_title', 'al-script')
-        t = QLabel(gui_title)
-        t.setStyleSheet('font-size: 24px; font-weight: bold;')
-        t.setAlignment(Qt.AlignCenter)
-        layout.addWidget(t)
-        v = QLabel(f'{tr("Version")} {self._full_config.get("version", "0.1.0")}')
-        v.setStyleSheet('font-size: 14px;')
-        v.setAlignment(Qt.AlignCenter)
-        layout.addWidget(v)
-        layout.addStretch()
-        c = QLabel('MIT License | Copyright 2024-2026')
-        c.setStyleSheet('font-size: 11px;')
-        c.setAlignment(Qt.AlignCenter)
-        layout.addWidget(c)
-        self.tabs.addTab(w, tr('About'))
+        paths = CardWidget()
+        pl = QVBoxLayout(paths)
+        pl.addWidget(SubtitleLabel(tr('Paths')))
+        for key in (tr('Config directory'), tr('Assets directory')):
+            row = QWidget()
+            rl = QHBoxLayout(row)
+            rl.addWidget(QLabel(key + ':'))
+            rl.addWidget(LineEdit())
+            rl.addStretch()
+            pl.addWidget(row)
+        t.add_widget(paths)
 
-    def _create_bottom_bar(self, parent_layout):
-        bar = QFrame()
-        bar.setObjectName('bottomBar')
-        bar_layout = QHBoxLayout(bar)
-        bar_layout.setContentsMargins(15, 6, 15, 6)
-        self._unsaved_dot = QLabel('')
-        self._unsaved_dot.setFixedSize(10, 10)
-        self._unsaved_dot.setStyleSheet('background-color: #f59e0b; border-radius: 5px;')
-        self._unsaved_dot.setVisible(False)
-        self._unsaved_dot.setToolTip(tr('Unsaved changes'))
-        bar_layout.addWidget(self._unsaved_dot)
-        self.status_bar_label = QLabel(tr('Ready'))
-        self.status_bar_label.setObjectName('statusBar')
-        bar_layout.addWidget(self.status_bar_label)
-        bar_layout.addStretch()
-        self._runtime_label = QLabel('')
-        self._runtime_label.setObjectName('statusBar')
-        bar_layout.addWidget(self._runtime_label)
-        parent_layout.addWidget(bar)
+        t.add_stretch()
+        return t
 
-    # ═══════════════════════════════════════════════
-    #  Signals
-    # ═══════════════════════════════════════════════
+    def _make_about_tab(self):
+        t = Tab()
+        card = CardWidget()
+        cl = QVBoxLayout(card)
+        cl.setAlignment(Qt.AlignCenter)
+        cl.addWidget(QLabel(
+            self._full_config.get('gui_title', 'NTE AutoScript')
+        ))
+        cl.addWidget(QLabel(
+            f'{tr("Version")} {self._full_config.get("version", "0.1.0")}'
+        ))
+        cl.addWidget(QLabel('MIT License | 2024-2026'))
+        t.add_widget(card)
+        t.add_stretch()
+        return t
+
+    # ── task list ──────────────────────────────────────────
+
+    def _load_task_list(self):
+        tasks = self._al_config.get_task_list()
+        self._task_tab.load_tasks(tasks)
+        if tasks:
+            self._task_tab.load_task(tasks[0])
+
+    # ── signals ────────────────────────────────────────────
 
     def _connect_signals(self):
-        self.btn_start.clicked.connect(self._on_start)
-        self.btn_stop.clicked.connect(self._on_stop)
-        self.btn_pause.clicked.connect(self._on_pause)
-        self.setting_theme.currentTextChanged.connect(self._on_theme_changed)
-        self.setting_language.currentTextChanged.connect(self._on_language_changed)
-
-        # Toolbar → ConfigManager
-        self._toolbar.config_switch.connect(self._cm.switch_config)
-        self._toolbar.config_new.connect(lambda n: (self._cm.new_config(n), self._refresh_config_list()))
-        self._toolbar.config_save.connect(lambda n: (self._cm.save_as(n), self._refresh_config_list()))
-        self._toolbar.config_delete.connect(lambda n: (self._cm.delete_config(n), self._refresh_config_list()))
-        self._toolbar.config_export.connect(lambda n: self._cm.export_config(n, self))
-        self._toolbar.config_import.connect(lambda: (self._cm.import_config(self), self._refresh_config_list()))
-        self._toolbar.config_refresh.connect(self._refresh_config_list)
-        self._toolbar.open_config_dir.connect(self._cm.open_config_dir)
-        self._toolbar.multi_instance.connect(self._show_instance_panel)
+        # Toolbar
+        self._toolbar.config_switch.connect(self._on_switch_config)
+        self._toolbar.config_new.connect(self._on_new_config)
+        self._toolbar.config_save.connect(self._on_save_as)
+        self._toolbar.config_delete.connect(self._on_delete_config)
+        self._toolbar.config_import.connect(self._on_import_config)
+        self._toolbar.multi_instance.connect(self._show_instances)
 
         # Communication bus
         communicate.new_log.connect(self._on_new_log)
         communicate.log.connect(self._on_log)
         communicate.new_frame.connect(self._on_new_frame)
         communicate.new_boxes.connect(self._on_new_boxes)
-        communicate.new_status.connect(self._on_status_change)
         communicate.clear_boxes.connect(lambda: self.screenshot_viewer.clear())
-        communicate.config_changed.connect(self._cm.on_external_config_change)
 
-    # ═══════════════════════════════════════════════
-    #  Config name changed callback
-    # ═══════════════════════════════════════════════
+    # ── config management ──────────────────────────────────
 
-    def _on_config_name_changed(self, name):
-        gui_title = self._full_config.get('gui_title', 'al-script')
-        self.setWindowTitle(f'{gui_title} - {name}')
-        self._refresh_config_list()
-        self._task_tab.load_tasks()
-
-    def _refresh_config_list(self):
-        names = self._cm.scan_configs()
-        self._toolbar.set_config_list(names)
-        self._toolbar.set_current(self._cm.config_name)
-
-    # ═══════════════════════════════════════════════
-    #  Theme / Language switching
-    # ═══════════════════════════════════════════════
-
-    def _on_theme_changed(self, text):
-        mode_map = {tr('Dark Mode'): 'dark', tr('Light Mode'): 'light',
-                     'Dark Mode': 'dark', 'Light Mode': 'light'}
-        self._switch_theme(mode_map.get(text, 'dark'))
-
-    def _on_language_changed(self, text):
-        lang_map = {'English': 'en', '中文': 'zh_CN'}
-        self._switch_language(lang_map.get(text, 'zh_CN'))
-
-    def _switch_language(self, lang):
-        set_language(lang)
-        self._current_lang = lang
-        self._refresh_ui_text()
-
-    def _refresh_ui_text(self):
-        self.btn_start.setText(tr('Start'))
-        self.btn_stop.setText(tr('Stop'))
-        self.btn_pause.setText(tr('Pause'))
-        self._task_tab.refresh_task_labels()
-        tab_labels = [tr('Task Config'), tr('Templates'), tr('Debug'),
-                      tr('Log'), tr('Settings'), tr('About')]
-        for i, label in enumerate(tab_labels):
-            self.tabs.setTabText(i, label)
-        current = self.status_indicator.text()
-        if current in (tr('Idle'), 'Idle', '空闲'):
-            self.status_indicator.setText(tr('Idle'))
-        elif current in (tr('Running'), 'Running', '运行中'):
-            self.status_indicator.setText(tr('Running'))
-        elif current in (tr('Stopped'), 'Stopped', '已停止'):
-            self.status_indicator.setText(tr('Stopped'))
-        elif current in (tr('Paused'), 'Paused', '已暂停'):
-            self.status_indicator.setText(tr('Paused'))
-        self._task_tab.re_render()
-
-    # ═══════════════════════════════════════════════
-    #  Task execution
-    # ═══════════════════════════════════════════════
-
-    def _on_start(self):
-        task_name = self._task_tab.selected_task_name()
-        if not task_name:
+    def _on_switch_config(self, name):
+        if not name or name == self.config_name:
             return
-        self.btn_start.setEnabled(False)
-        self.btn_stop.setEnabled(True)
-        self.btn_pause.setEnabled(True)
-        self.btn_pause.setText(tr('Pause'))
-        self.status_indicator.setText(tr('Running'))
-        self.status_indicator.setStyleSheet('color: #22c55e; font-size: 12px; padding: 5px;')
-        self.status_bar_label.setText(tr('Task started'))
-        communicate.task_started.emit(task_name)
-        logger.info(f'Task started: {task_name}')
+        self._task_tab._do_save()
+        self.config_name = name
+        self._al_config = AlConfig(name)
+        self._args_data = self._load_args_json()
+        gui_title = self._full_config.get('gui_title', 'NTE AutoScript')
+        self.setWindowTitle(f'{gui_title} - {name}')
+        # Rebuild task tab with new config
+        old_layout = self._task_tab.parent()
+        self._task_tab.deleteLater()
+        self._task_tab = TaskConfigTab(self._al_config, self._args_data, self._gui_labels)
+        self._load_task_list()
 
-    def _on_stop(self):
-        self.btn_start.setEnabled(True)
-        self.btn_stop.setEnabled(False)
-        self.btn_pause.setEnabled(False)
-        self.status_indicator.setText(tr('Stopped'))
-        self.status_indicator.setStyleSheet('color: #ef4444; font-size: 12px; padding: 5px;')
-        communicate.task_stopped.emit()
-        logger.info('Task stopped')
+    def _on_new_config(self, name):
+        src = filepath_config(self.config_name)
+        dst = filepath_config(name)
+        if os.path.exists(dst):
+            from qfluentwidgets import InfoBar
+            InfoBar.warning(tr('Error'), f'{tr("Config Name")} "{name}" ' + tr('exists'),
+                            parent=self)
+            return
+        if os.path.exists(src):
+            shutil.copy2(src, dst)
+        self._refresh_list()
 
-    def _on_pause(self):
-        if self.btn_pause.text() in (tr('Pause'), 'Pause'):
-            self.btn_pause.setText(tr('Resume'))
-            self.status_indicator.setText(tr('Paused'))
-            self.status_indicator.setStyleSheet('color: #f59e0b; font-size: 12px; padding: 5px;')
-            communicate.task_paused.emit()
-        else:
-            self.btn_pause.setText(tr('Pause'))
-            self.status_indicator.setText(tr('Running'))
-            self.status_indicator.setStyleSheet('color: #22c55e; font-size: 12px; padding: 5px;')
-            communicate.task_resumed.emit()
+    def _on_save_as(self, name):
+        self._task_tab._do_save()
+        write_file(filepath_config(name), copy.deepcopy(self._al_config.data))
+        self._refresh_list()
 
-    # ═══════════════════════════════════════════════
-    #  Multi-instance panel
-    # ═══════════════════════════════════════════════
+    def _on_delete_config(self, name):
+        p = filepath_config(name)
+        if os.path.exists(p):
+            os.remove(p)
+        self._refresh_list()
 
-    def _show_instance_panel(self):
+    def _on_import_config(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, tr('Import Config'), '',
+            'NTECFG Files (*.ntecfg);;JSON Files (*.json)')
+        if path:
+            data = read_file(path)
+            if data:
+                name = os.path.splitext(os.path.basename(path))[0]
+                write_file(filepath_config(name), data)
+                self._refresh_list()
+
+    def _refresh_list(self):
+        config_dir = os.path.normpath('./config')
+        if os.path.isdir(config_dir):
+            names = sorted(f[:-5] for f in os.listdir(config_dir)
+                           if f.endswith('.json'))
+            self._toolbar.set_config_list(names)
+            self._toolbar.set_current(self.config_name)
+
+    # ── multi-instance ─────────────────────────────────────
+
+    def _show_instances(self):
         for child in self.findChildren(QDockWidget):
             if child.windowTitle() == tr('Multi-Instance Manager'):
                 child.close()
                 child.deleteLater()
         dock = QDockWidget(tr('Multi-Instance Manager'), self)
-        dock.setAllowedAreas(Qt.RightDockWidgetArea | Qt.LeftDockWidgetArea)
-        panel = InstancePanel(config_dir='./config')
-        panel.instance_start.connect(lambda n: logger.info(f'Start instance: {n}'))
-        panel.instance_stop.connect(lambda n: logger.info(f'Stop instance: {n}'))
-        panel.instance_restart.connect(lambda n: logger.info(f'Restart instance: {n}'))
-        panel.instance_stop_all.connect(lambda: logger.info('Stop all instances'))
-        panel.multi_launch.connect(lambda cn, cnt: [self._cm.new_config(f'{cn}_{i:02d}') for i in range(1, cnt + 1)])
-        dock.setWidget(panel)
+        dock.setWidget(InstancePanel())
         self.addDockWidget(Qt.RightDockWidgetArea, dock)
         dock.setFloating(False)
 
-    # ═══════════════════════════════════════════════
-    #  Logging / Debug
-    # ═══════════════════════════════════════════════
+    # ── logging / debug ────────────────────────────────────
 
     @Slot(str)
     def _on_new_log(self, msg):
@@ -506,12 +456,7 @@ class MainWindow(QMainWindow):
 
     @Slot(object)
     def _on_new_boxes(self, boxes):
-        self._boxes = boxes
         self.screenshot_viewer.set_boxes(boxes)
-
-    @Slot(str)
-    def _on_status_change(self, status):
-        self.status_bar_label.setText(status)
 
     def _refresh_templates(self):
         self.template_tree.clear()
@@ -524,35 +469,33 @@ class MainWindow(QMainWindow):
                     path = os.path.join(root, file)
                     rel = os.path.relpath(path, assets_dir)
                     sz = os.path.getsize(path)
-                    item = QTreeWidgetItem([
+                    self.template_tree.addTopLevelItem(QTreeWidgetItem([
                         os.path.splitext(file)[0],
                         tr('Template') if file.startswith('TEMPLATE_') else tr('Button'),
                         f'{sz / 1024:.1f} KB', rel
-                    ])
-                    self.template_tree.addTopLevelItem(item)
+                    ]))
 
     def _import_template(self):
         path, _ = QFileDialog.getOpenFileName(self, tr('Import PNG'), '',
                                                'PNG Images (*.png);;All Files (*)')
         if path:
-            dest_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'assets', 'default', 'imported')
+            dest_dir = os.path.join(os.path.dirname(__file__), '..', '..',
+                                     'assets', 'default', 'imported')
             os.makedirs(dest_dir, exist_ok=True)
-            dest = os.path.join(dest_dir, os.path.basename(path))
-            shutil.copy2(path, dest)
-            logger.info(f'Imported template: {dest}')
+            shutil.copy2(path, os.path.join(dest_dir, os.path.basename(path)))
             self._refresh_templates()
 
-    # ═══════════════════════════════════════════════
-    #  Lifecycle
-    # ═══════════════════════════════════════════════
+    # ── lifecycle ──────────────────────────────────────────
 
     def set_executor(self, executor):
         self.executor = executor
 
     def closeEvent(self, event):
-        if self._unsaved_dot.isVisible():
-            self._cm.flush_pending()
+        if hasattr(self, '_task_tab'):
+            self._task_tab._do_save()
         communicate.quit.emit()
         if self.executor:
             self.executor.stop()
         super().closeEvent(event)
+
+
