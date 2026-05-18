@@ -20,6 +20,9 @@ from module.device.device_manager import DeviceManager, TARGET_WIDTH, TARGET_HEI
 from module.feature.feature_set import FeatureSet
 from module.task.executor import TaskExecutor
 from module.gui.communicate import communicate
+from module.runtime import RuntimeContext
+from module.runtime.manager import RuntimeManager
+from module.runtime.event_bus import bus
 
 # Try to import pyappify
 try:
@@ -56,6 +59,8 @@ class App:
         self.overlay_window = None
         self.main_window = None
         self.app = None
+        self.runtime_ctx = None
+        self.runtime_manager = None
 
         logger.info(f'al-script v{self.config.get("version", "0.1.0")}')
         logger.info(f'Config: {self.config.get("config_name", "template")}')
@@ -69,6 +74,7 @@ class App:
         self.config.setdefault('config_folder', 'config')
         self.config.setdefault('debug', False)
         self.config.setdefault('use_gui', True)
+        self.config.setdefault('use_runtime', True)
         self.config.setdefault('window_size', {
             'width': 1400,
             'height': 900,
@@ -91,6 +97,10 @@ class App:
 
         # Initialize TaskExecutor
         self._init_task_executor()
+
+        # Initialize spec-compliant runtime
+        if self.config.get('use_runtime', True):
+            self._init_runtime()
 
     def _init_device_manager(self):
         """Initialize the device manager."""
@@ -124,8 +134,23 @@ class App:
         )
         logger.info('TaskExecutor initialized')
 
+    def _init_runtime(self):
+        """Initialize spec-compliant runtime (TickLoop, EventBus, etc.)."""
+        self.runtime_ctx = RuntimeContext(
+            device=self.device_manager,
+            config=self.config,
+            state="INIT",
+        )
+        self.runtime_ctx.state = "READY"
+        self.runtime_manager = RuntimeManager(self.runtime_ctx)
+        self.runtime_manager.set_device_manager(self.device_manager)
+        bus.emit("RUNTIME_INIT", {"state": self.runtime_ctx.state})
+
     def start(self):
         """Start the application (GUI or CLI mode)."""
+        if self.runtime_manager:
+            self.runtime_manager.start()
+            self.runtime_ctx.state = "RUNNING"
         if self.config.get('use_gui'):
             self._start_gui()
         else:
@@ -236,6 +261,10 @@ class App:
 
         if self.task_executor:
             self.task_executor.stop()
+
+        if self.runtime_manager:
+            self.runtime_manager.stop()
+            self.runtime_ctx.state = "STOPPED"
 
         if self.app:
             from PySide6.QtCore import QMetaObject, Qt

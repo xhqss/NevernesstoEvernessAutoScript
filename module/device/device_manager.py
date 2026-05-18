@@ -259,6 +259,27 @@ class DeviceManager:
             return self._interaction.send_key(key)
         return False
 
+    def reconnect(self):
+        """Re-establish device connection."""
+        logger.info('Reconnecting device...')
+        if self.is_adb:
+            self._init_adb()
+        elif self.is_pc:
+            self._init_pc()
+        return True
+
+    def latency_profile(self) -> dict:
+        """Return device capability profile for timing compensation."""
+        return {
+            "type": "adb" if self.is_adb else "pc",
+            "screenshot_latency_ms": 45 if self.is_adb else 15,
+            "screenshot_jitter_ms": 10 if self.is_adb else 5,
+            "input_latency_ms": 30 if self.is_adb else 10,
+            "input_jitter_ms": 8 if self.is_adb else 3,
+            "refresh_rate": 60,
+            "resolution": [TARGET_WIDTH, TARGET_HEIGHT],
+        }
+
     def __repr__(self):
         return (f'DeviceManager(pc={self.is_pc}, adb={self.is_adb}, '
                 f'hwnd={self._hwnd}, serial={self._serial}, '
