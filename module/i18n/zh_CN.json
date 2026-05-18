@@ -65,6 +65,10 @@
     "Heist": "大劫案",
     "Dialog": "对话",
     "Travel": "传送",
+    "DefaultTask": "默认设置",
+    "AutoCombat": "自动战斗",
+    "SkipDialog": "跳过对话",
+    "FastTravel": "快速传送",
 
     "Neverness to Everness": "异环",
     "Character": "角色",

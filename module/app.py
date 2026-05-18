@@ -168,15 +168,15 @@ class App:
         logger.info('GUI started')
         sys.exit(self.app.exec())
 
-    def _on_gui_task_started(self, config_name):
-        """Handle task start from GUI."""
-        if config_name == 'debug_screenshot':
+    def _on_gui_task_started(self, json_task_name):
+        """Handle task start from GUI. json_task_name is the JSON config task key."""
+        if json_task_name == 'debug_screenshot':
             if self.device_manager:
                 frame = self.device_manager.screenshot()
                 if frame is not None:
                     communicate.new_frame.emit(frame)
             return
-        self._start_execution()
+        self._start_execution(json_task_name)
 
     def _on_gui_task_stopped(self):
         """Handle task stop from GUI."""
@@ -194,9 +194,24 @@ class App:
         if self.task_executor:
             self.task_executor.resume()
 
-    def _start_execution(self):
-        """Load tasks from config and start the executor."""
-        self.load_tasks_from_config()
+    def _build_task_class_map(self):
+        """Build mapping: JSON task name → (module_path, class_name)."""
+        mapping = {}
+        for task_def in self.config.get('onetime_tasks', []):
+            if isinstance(task_def, (list, tuple)) and len(task_def) == 2:
+                cls = task_def[1]
+                json_name = cls[:-4] if cls.endswith('Task') else cls
+                mapping[json_name] = tuple(task_def)
+        for task_def in self.config.get('trigger_tasks', []):
+            if isinstance(task_def, (list, tuple)) and len(task_def) == 2:
+                cls = task_def[1]
+                json_name = cls[:-4] if cls.endswith('Task') else cls
+                mapping[json_name] = tuple(task_def)
+        return mapping
+
+    def _start_execution(self, json_task_name=None):
+        """Load and start the specific task (or all if json_task_name is None)."""
+        self.load_tasks_from_config(json_task_name)
         if self.task_executor:
             self.task_executor.start()
             communicate.new_status.emit('Running')
@@ -230,8 +245,11 @@ class App:
         """Quit the application."""
         self.stop()
 
-    def load_tasks_from_config(self):
+    def load_tasks_from_config(self, json_task_name=None):
         """Load and register tasks from configuration.
+
+        If json_task_name is provided, only that task is loaded.
+        Otherwise all onetime + trigger tasks are loaded.
 
         Supports two formats:
         - make_config list format: ["module.path", "ClassName"]
@@ -241,13 +259,29 @@ class App:
         trigger_tasks = self.config.get('trigger_tasks', [])
         scheduled_tasks = self.config.get('scheduled_tasks', [])
 
-        # Also support legacy 'tasks' dict wrapper
-        tasks_wrapper = self.config.get('tasks', {})
-        if tasks_wrapper:
-            onetime_tasks.extend(tasks_wrapper.get('onetime_tasks', []))
-            trigger_tasks.extend(tasks_wrapper.get('trigger_tasks', []))
-            scheduled_tasks.extend(tasks_wrapper.get('scheduled_tasks', []))
+        # Build mapping: json_name → (mod, cls)
+        task_map = self._build_task_class_map()
 
+        # Filter to single task if requested
+        if json_task_name and json_task_name in task_map:
+            mod, cls = task_map[json_task_name]
+            # Find which list it belongs to and load just that one
+            for task_def in onetime_tasks:
+                if isinstance(task_def, (list, tuple)) and task_def[1] == cls:
+                    self._register_task(task_def, 'onetime')
+                    logger.info(f'Loaded single task: {cls}')
+                    return
+            for task_def in trigger_tasks:
+                if isinstance(task_def, (list, tuple)) and task_def[1] == cls:
+                    self._register_task(task_def, 'trigger')
+                    logger.info(f'Loaded single trigger task: {cls}')
+                    return
+            # Fallback: load it as one-time
+            self._register_task([mod, cls], 'onetime')
+            logger.info(f'Loaded single task (fallback): {cls}')
+            return
+
+        # No filter → load all
         for task_def in onetime_tasks:
             self._register_task(task_def, 'onetime')
 

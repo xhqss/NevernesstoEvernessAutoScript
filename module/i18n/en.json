@@ -65,6 +65,10 @@
     "Heist": "Heist",
     "Dialog": "Dialog",
     "Travel": "Travel",
+    "DefaultTask": "Default Settings",
+    "AutoCombat": "Auto Combat",
+    "SkipDialog": "Skip Dialog",
+    "FastTravel": "Fast Travel",
 
     "Neverness to Everness": "Neverness to Everness",
     "Character": "Character",

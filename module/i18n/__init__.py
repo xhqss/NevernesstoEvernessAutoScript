@@ -77,8 +77,8 @@ class Translator:
         return sorted(langs) if langs else ['en']
 
 
-# Global translator instance
-translator = Translator('en')
+# Global translator instance — default to Chinese for this game tool
+translator = Translator('zh_CN')
 
 
 def tr(key, default=None):

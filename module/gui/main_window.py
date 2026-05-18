@@ -555,39 +555,32 @@ class MainWindow(QMainWindow):
         communicate.new_status.connect(self._on_status_change)
         communicate.clear_boxes.connect(lambda: self.screenshot_viewer.clear())
 
+    def _build_task_class_map(self):
+        """Build mapping: JSON task name → (module_path, class_name)."""
+        mapping = {}
+        for task_def in self._full_config.get('onetime_tasks', []):
+            if isinstance(task_def, (list, tuple)) and len(task_def) == 2:
+                cls = task_def[1]
+                # "LauncherTask" → "Launcher", "DailyTask" → "Daily", etc.
+                json_name = cls[:-4] if cls.endswith('Task') else cls
+                mapping[json_name] = tuple(task_def)
+        for task_def in self._full_config.get('trigger_tasks', []):
+            if isinstance(task_def, (list, tuple)) and len(task_def) == 2:
+                cls = task_def[1]
+                json_name = cls[:-4] if cls.endswith('Task') else cls
+                mapping[json_name] = tuple(task_def)
+        return mapping
+
     def _load_task_list(self):
-        """Load task list from config."""
+        """Load task list from JSON config, with translated display names."""
         self.task_list.clear()
-
-        # Add game-specific tasks from full config first
-        onetime = self._full_config.get('onetime_tasks', [])
-        trigger = self._full_config.get('trigger_tasks', [])
-
-        # Also check tasks loaded from JSON
         json_tasks = self._al_config.get_task_list()
 
-        seen = set()
-        # Game tasks from make_config
-        for task_def in onetime + trigger:
-            if isinstance(task_def, (list, tuple)):
-                name = task_def[1] if len(task_def) > 1 else str(task_def)
-            elif isinstance(task_def, dict):
-                name = task_def.get('class', '')
-            else:
-                continue
-            if name and name not in seen:
-                seen.add(name)
-                item = QListWidgetItem(name)
-                item.setData(Qt.UserRole, name)
-                self.task_list.addItem(item)
-
-        # JSON scheduled tasks
         for task_name in json_tasks:
-            if task_name not in seen:
-                seen.add(task_name)
-                item = QListWidgetItem(task_name)
-                item.setData(Qt.UserRole, task_name)
-                self.task_list.addItem(item)
+            display = tr(task_name, default=task_name)
+            item = QListWidgetItem(display)
+            item.setData(Qt.UserRole, task_name)  # store JSON name for config lookup
+            self.task_list.addItem(item)
 
         if self.task_list.count() > 0:
             self.task_list.setCurrentRow(0)
@@ -596,7 +589,8 @@ class MainWindow(QMainWindow):
         """Handle task selection change."""
         if current is None:
             return
-        task_name = current.data(Qt.UserRole)
+        task_name = current.data(Qt.UserRole)  # JSON task name
+        self._selected_task_json_name = task_name
         self._render_task_config(task_name)
 
     def _render_task_config(self, task_name):
@@ -647,9 +641,12 @@ class MainWindow(QMainWindow):
         self.btn_pause.setText(tr('Pause'))
         self.btn_save.setText(tr('Save Config'))
 
-        # Refresh pause button state
-        if self.btn_pause.isEnabled():
-            pass  # keep current text
+        # Task list — re-translate display names, keeping JSON name in UserRole
+        for i in range(self.task_list.count()):
+            item = self.task_list.item(i)
+            json_name = item.data(Qt.UserRole)
+            if json_name:
+                item.setText(tr(json_name, default=json_name))
 
         # Tab labels
         self.tabs.setTabText(0, tr('Task Config'))
@@ -659,17 +656,20 @@ class MainWindow(QMainWindow):
         self.tabs.setTabText(4, tr('Settings'))
         self.tabs.setTabText(5, tr('About'))
 
-        # Status
-        current_status = self.status_indicator.text()
-        status_map = {'Idle': tr('Idle'), 'Running': tr('Running'),
-                       'Stopped': tr('Stopped'), 'Paused': tr('Paused')}
-        # Check English strings as keys
-        for eng, loc in [('Idle', tr('Idle')), ('Running', tr('Running')),
-                          ('Stopped', tr('Stopped')), ('Paused', tr('Paused')),
-                          ('Ready', tr('Ready'))]:
-            if self.status_indicator.text() in (eng, tr(eng)):
-                self.status_indicator.setText(tr(eng) if tr(eng) != eng else loc)
-                break
+        # Status indicator
+        current = self.status_indicator.text()
+        if current in (tr('Idle'), 'Idle', '空闲', '待機中'):
+            self.status_indicator.setText(tr('Idle'))
+        elif current in (tr('Running'), 'Running', '运行中', '実行中'):
+            self.status_indicator.setText(tr('Running'))
+        elif current in (tr('Stopped'), 'Stopped', '已停止', '停止済'):
+            self.status_indicator.setText(tr('Stopped'))
+        elif current in (tr('Paused'), 'Paused', '已暂停', '一時停止中'):
+            self.status_indicator.setText(tr('Paused'))
+
+        # Status bar
+        if self.status_bar_label.text() in (tr('Ready'), 'Ready', '就绪', '準備完了'):
+            self.status_bar_label.setText(tr('Ready'))
 
     def _on_config_change(self, key, value):
         """Handle config value change."""
@@ -684,7 +684,11 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(3000, lambda: self.status_bar_label.setText(tr('Ready')))
 
     def _on_start(self):
-        """Start task execution."""
+        """Start task execution for the currently selected task."""
+        task_name = getattr(self, '_selected_task_json_name', None)
+        if not task_name:
+            return
+
         self.btn_start.setEnabled(False)
         self.btn_stop.setEnabled(True)
         self.btn_pause.setEnabled(True)
@@ -692,8 +696,9 @@ class MainWindow(QMainWindow):
         self.status_indicator.setText(tr('Running'))
         self.status_indicator.setStyleSheet('color: #22c55e; font-size: 12px; padding: 5px;')
         self.status_bar_label.setText(tr('Task started'))
-        communicate.task_started.emit(self.config_name)
-        logger.info('Task started via GUI')
+        # Pass JSON task name so App can map it to the right class
+        communicate.task_started.emit(task_name)
+        logger.info(f'Task started via GUI: {task_name}')
 
     def _on_stop(self):
         """Stop task execution."""
