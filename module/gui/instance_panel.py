@@ -6,7 +6,7 @@ import os
 import json
 
 from PySide6.QtCore import Qt, Signal, QTimer
-from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QWidget
+from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QWidget, QTableWidgetItem
 from qfluentwidgets import (
     TableWidget, PushButton, FluentIcon, SubtitleLabel, MessageBox,
 )
@@ -63,8 +63,8 @@ class InstancePanel(QWidget):
         configs = _scan(self._config_dir)
         self._table.setRowCount(len(configs))
         for i, name in enumerate(configs):
-            self._table.setItem(i, 0, name, '')
-            self._table.setItem(i, 1, tr('Stopped'), '')
+            self._table.setItem(i, 0, QTableWidgetItem(name))
+            self._table.setItem(i, 1, QTableWidgetItem(tr('Stopped')))
             w = QWidget()
             l = QHBoxLayout(w)
             l.setContentsMargins(0, 0, 0, 0)

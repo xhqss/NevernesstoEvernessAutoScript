@@ -1,9 +1,9 @@
 """
-Key binding table using qfluentwidgets TableWidget.
+Key binding table widget using qfluentwidgets TableWidget.
 """
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QTableWidgetItem
 from qfluentwidgets import TableWidget, PushButton, ComboBox, FluentIcon
 
 from module.gui.widgets import KeyCaptureDialog
@@ -59,11 +59,14 @@ class KeyBindTable(QWidget):
         self._table.verticalHeader().hide()
         layout.addWidget(self._table)
 
+    def _set_text(self, row, col, text):
+        self._table.setItem(row, col, QTableWidgetItem(text))
+
     def _load(self):
         self._table.setRowCount(len(_KEY_DEFS))
         for row, (key_name, cn, note) in enumerate(_KEY_DEFS):
-            self._table.setItem(row, 0, cn, note)
-            self._table.setItem(row, 1, self._keys.get(key_name, ''), '')
+            self._set_text(row, 0, cn)
+            self._set_text(row, 1, self._keys.get(key_name, ''))
             btn = PushButton(FluentIcon.EDIT, '')
             btn.setFixedWidth(60)
             btn.clicked.connect(lambda checked, r=row: self._capture(r))
@@ -78,7 +81,7 @@ class KeyBindTable(QWidget):
             new_key = dlg.captured_key()
             if new_key != current:
                 self._keys[key_name] = new_key
-                self._table.setItem(row, 1, new_key, '')
+                self._set_text(row, 1, new_key)
                 self.key_changed.emit(key_name, new_key)
 
     def _apply_preset(self, name):
@@ -86,7 +89,7 @@ class KeyBindTable(QWidget):
         for row, (key_name, _, _) in enumerate(_KEY_DEFS):
             if key_name in preset:
                 self._keys[key_name] = preset[key_name]
-                self._table.setItem(row, 1, preset[key_name], '')
+                self._set_text(row, 1, preset[key_name])
                 self.key_changed.emit(key_name, preset[key_name])
 
     def _restore(self):
@@ -98,4 +101,4 @@ class KeyBindTable(QWidget):
     def set_keys(self, keys):
         self._keys = dict(keys)
         for row, (key_name, _, _) in enumerate(_KEY_DEFS):
-            self._table.setItem(row, 1, self._keys.get(key_name, ''), '')
+            self._set_text(row, 1, self._keys.get(key_name, ''))

@@ -1,10 +1,12 @@
 """
 Task config tab — renders ConfigCards + KeyBindTable for a selected task.
-Follows ok-nte's Tab + ConfigCard pattern.
+Follows ok-nte's Tab(ScrollArea) + ConfigCard pattern.
 """
 
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QLabel, QWidget, QHBoxLayout, QVBoxLayout
+from PySide6.QtWidgets import (
+    QLabel, QWidget, QHBoxLayout, QVBoxLayout, QScrollArea,
+)
 from qfluentwidgets import FluentIcon, PushButton, ComboBox, CardWidget, SubtitleLabel
 
 from module.config import deep_set
@@ -16,11 +18,14 @@ from module.i18n import tr
 from module.util.logger import logger
 
 
-class TaskConfigTab(QWidget):
+class TaskConfigTab(QScrollArea):
     """Scrollable tab with task selector, start/stop controls, and config cards."""
 
     def __init__(self, al_config, args_data, gui_labels, parent=None):
         super().__init__(parent)
+        self.setObjectName('taskConfigTab')
+        self.setWidgetResizable(True)
+
         self._al_config = al_config
         self._args_data = args_data
         self._gui_labels = gui_labels
@@ -34,9 +39,13 @@ class TaskConfigTab(QWidget):
         self._init_ui()
 
     def _init_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 16, 24, 16)
-        layout.setSpacing(8)
+        # Container widget inside ScrollArea
+        self.view = QWidget()
+        self.view.setObjectName('view')
+        self.vBoxLayout = QVBoxLayout(self.view)
+        self.vBoxLayout.setContentsMargins(24, 16, 24, 16)
+        self.vBoxLayout.setSpacing(8)
+        self.setWidget(self.view)
 
         # ── control bar ──
         bar = QWidget()
@@ -47,9 +56,7 @@ class TaskConfigTab(QWidget):
 
         self._task_combo = ComboBox()
         self._task_combo.setMinimumWidth(160)
-        self._task_combo.currentTextChanged.connect(
-            lambda name: self.load_task(name) if name else None
-        )
+        self._task_combo.currentIndexChanged.connect(self._on_combo_changed)
         bl.addWidget(self._task_combo)
         bl.addStretch()
 
@@ -67,32 +74,22 @@ class TaskConfigTab(QWidget):
         self._btn_pause.clicked.connect(self._on_pause)
         bl.addWidget(self._btn_pause)
 
-        layout.addWidget(bar)
+        self.vBoxLayout.addWidget(bar)
 
-        # ── scroll area for cards ──
-        from PySide6.QtWidgets import QScrollArea
-        self._scroll = QScrollArea()
-        self._scroll.setWidgetResizable(True)
-        self._scroll.setObjectName('view')
-        self._card_widget = QWidget()
-        self._card_layout = QVBoxLayout(self._card_widget)
-        self._card_layout.setSpacing(8)
-        self._card_layout.setContentsMargins(0, 0, 0, 0)
-        self._scroll.setWidget(self._card_widget)
-        layout.addWidget(self._scroll, 1)
+    # ── task list ────────────────────────────────────────
 
-    # ── task list ───────────────────────────────────────────
+    def _on_combo_changed(self, index):
+        if index < 0:
+            return
+        task_name = self._task_combo.itemData(index)
+        if task_name:
+            self.load_task(task_name)
 
     def load_tasks(self, task_names):
-        current = self._task_combo.currentText()
         self._task_combo.blockSignals(True)
         self._task_combo.clear()
         for tn in task_names:
             self._task_combo.addItem(tr(tn, default=tn), tn)
-        # Restore selection
-        idx = self._task_combo.findText(current)
-        if idx >= 0:
-            self._task_combo.setCurrentIndex(idx)
         self._task_combo.blockSignals(False)
 
     def load_task(self, task_name):
@@ -105,11 +102,10 @@ class TaskConfigTab(QWidget):
     def selected_task_name(self):
         return self._current_task
 
-    # ── rendering ───────────────────────────────────────────
-
     def _clear(self):
-        while self._card_layout.count():
-            item = self._card_layout.takeAt(0)
+        # Remove all widgets after control bar
+        while self.vBoxLayout.count() > 1:
+            item = self.vBoxLayout.takeAt(self.vBoxLayout.count() - 1)
             if item.widget():
                 item.widget().deleteLater()
         self._task_cards.clear()
@@ -120,7 +116,7 @@ class TaskConfigTab(QWidget):
         gui_labels = self._gui_labels
 
         if not args_task and not json_task:
-            self._card_layout.addWidget(
+            self.vBoxLayout.addWidget(
                 QLabel(f'{tr("No config for")} "{task_name}"')
             )
             return
@@ -152,16 +148,15 @@ class TaskConfigTab(QWidget):
             card = ConfigCard(
                 group_name, merged, adapter, gui_labels.get(group_name)
             )
-            self._card_layout.addWidget(card)
+            self.vBoxLayout.addWidget(card)
 
-        self._card_layout.addStretch()
+        self.vBoxLayout.addStretch()
 
     def _add_keybind_card(self, task_name, group_name, merged, gui_labels):
         wrapper = CardWidget()
         wl = QVBoxLayout(wrapper)
         title = (gui_labels.get(group_name, {}) or {}).get('_info', group_name)
         wl.addWidget(SubtitleLabel(tr(group_name, default=title)))
-
         current_keys = {a: d.get('value', '') for a, d in merged.items()}
         table = KeyBindTable(current_keys)
         table.key_changed.connect(
@@ -170,7 +165,7 @@ class TaskConfigTab(QWidget):
         )
         table.key_changed.connect(lambda *_: self.schedule_save())
         wl.addWidget(table)
-        self._card_layout.addWidget(wrapper)
+        self.vBoxLayout.addWidget(wrapper)
 
     def re_render(self):
         if self._current_task:
@@ -203,7 +198,7 @@ class TaskConfigTab(QWidget):
             self._btn_pause.setText(tr('Pause'))
             communicate.task_resumed.emit()
 
-    # ── auto-save ───────────────────────────────────────────
+    # ── auto-save ────────────────────────────────────────
 
     def schedule_save(self):
         self._save_timer.start(2000)

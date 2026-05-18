@@ -41,7 +41,7 @@ class LabelAndWidget(QWidget):
         title_inner.addWidget(self.title_label)
 
         self.content_label = None
-        if content:
+        if content and isinstance(content, str):
             self.content_label = QLabel(content)
             self.content_label.setObjectName('contentLabel')
             self.content_label.setWordWrap(True)
@@ -62,8 +62,8 @@ class ConfigLabelAndWidget(LabelAndWidget):
     """LabelAndWidget that reads/writes a config key."""
 
     def __init__(self, config_desc: dict, config: GroupConfigAdapter, key: str):
-        desc = config_desc.get(key) if config_desc else None
-        super().__init__(tr(key), desc)
+        # config_desc is the argument schema dict; we don't use it for descriptions here
+        super().__init__(tr(key), None)
         self.key = key
         self.config = config
 

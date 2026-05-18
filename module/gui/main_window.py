@@ -11,11 +11,11 @@ import os
 import copy
 import shutil
 
-from PySide6.QtCore import Qt, QTimer, Slot
+from PySide6.QtCore import Qt, QTimer, Slot, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
-    QFileDialog, QDockWidget, QTreeWidget, QTreeWidgetItem, QTextEdit,
+    QFileDialog, QDockWidget, QTextEdit,
     QScrollArea,
 )
 from qfluentwidgets import (
@@ -66,13 +66,13 @@ class Tab(QScrollArea):
 # ═══════════════════════════════════════════════
 
 class ExplorerToolbar(QFrame):
-    config_switch = Slot(str)
-    config_new = Slot(str)
-    config_save = Slot(str)
-    config_delete = Slot(str)
-    config_export = Slot(str)
-    config_import = Slot()
-    multi_instance = Slot()
+    config_switch = Signal(str)
+    config_new = Signal(str)
+    config_save = Signal(str)
+    config_delete = Signal(str)
+    config_export = Signal(str)
+    config_import = Signal()
+    multi_instance = Signal()
 
     def __init__(self, config_name='template', parent=None):
         super().__init__(parent)
@@ -211,15 +211,24 @@ class MainWindow(MSFluentWindow):
         self._task_tab = TaskConfigTab(
             self._al_config, self._args_data, self._gui_labels
         )
-        self._template_tab = self._make_template_tab()
         self._debug_tab = self._make_debug_tab()
         self._log_tab = self._make_log_tab()
         self._settings_tab = self._make_settings_tab()
         self._about_tab = self._make_about_tab()
 
+        # Ensure all tabs have objectName (required by qfluentwidgets)
+        for tab, name in [
+            (self._task_tab, 'taskConfigTab'),
+            (self._debug_tab, 'debugTab'),
+            (self._log_tab, 'logTab'),
+            (self._settings_tab, 'settingsTab'),
+            (self._about_tab, 'aboutTab'),
+        ]:
+            if not tab.objectName():
+                tab.setObjectName(name)
+
         pos = NavigationItemPosition
         self.addSubInterface(self._task_tab, FluentIcon.APPLICATION, tr('Task Config'))
-        self.addSubInterface(self._template_tab, FluentIcon.PHOTO, tr('Templates'))
         self.addSubInterface(self._debug_tab, FluentIcon.DEVELOPER_TOOLS, tr('Debug'))
         self.addSubInterface(self._log_tab, FluentIcon.DOCUMENT, tr('Log'))
         self.addSubInterface(self._about_tab, FluentIcon.INFO, tr('About'),
@@ -228,27 +237,6 @@ class MainWindow(MSFluentWindow):
                              position=pos.BOTTOM)
 
     # ── tab factories ──────────────────────────────────────
-
-    def _make_template_tab(self):
-        t = Tab()
-        self.template_tree = QTreeWidget()
-        self.template_tree.setHeaderLabels([
-            tr('Name'), tr('Type'), tr('Size'), tr('Path')
-        ])
-        t.add_widget(self.template_tree)
-        bar = QHBoxLayout()
-        bar.addStretch()
-        b1 = PushButton(FluentIcon.SYNC, tr('Refresh Templates'))
-        b1.clicked.connect(self._refresh_templates)
-        bar.addWidget(b1)
-        b2 = PushButton(FluentIcon.ADD, tr('Import PNG'))
-        b2.clicked.connect(self._import_template)
-        bar.addWidget(b2)
-        tw = QWidget()
-        tw.setLayout(bar)
-        t.add_widget(tw)
-        t.add_stretch()
-        return t
 
     def _make_debug_tab(self):
         t = Tab()
@@ -457,33 +445,6 @@ class MainWindow(MSFluentWindow):
     @Slot(object)
     def _on_new_boxes(self, boxes):
         self.screenshot_viewer.set_boxes(boxes)
-
-    def _refresh_templates(self):
-        self.template_tree.clear()
-        assets_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'assets')
-        if not os.path.isdir(assets_dir):
-            return
-        for root, dirs, files in os.walk(assets_dir):
-            for file in files:
-                if file.endswith('.png') or file.endswith('.gif'):
-                    path = os.path.join(root, file)
-                    rel = os.path.relpath(path, assets_dir)
-                    sz = os.path.getsize(path)
-                    self.template_tree.addTopLevelItem(QTreeWidgetItem([
-                        os.path.splitext(file)[0],
-                        tr('Template') if file.startswith('TEMPLATE_') else tr('Button'),
-                        f'{sz / 1024:.1f} KB', rel
-                    ]))
-
-    def _import_template(self):
-        path, _ = QFileDialog.getOpenFileName(self, tr('Import PNG'), '',
-                                               'PNG Images (*.png);;All Files (*)')
-        if path:
-            dest_dir = os.path.join(os.path.dirname(__file__), '..', '..',
-                                     'assets', 'default', 'imported')
-            os.makedirs(dest_dir, exist_ok=True)
-            shutil.copy2(path, os.path.join(dest_dir, os.path.basename(path)))
-            self._refresh_templates()
 
     # ── lifecycle ──────────────────────────────────────────
 
