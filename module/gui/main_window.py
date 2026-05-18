@@ -185,12 +185,13 @@ class MainWindow(QMainWindow):
             self._full_config = config
 
         self._al_config = AlConfig(self.config_name)
+        self._args_data = self._load_args_json()
         self.executor = None
         self.task_thread = None
         self._boxes = []
 
         # Init i18n: try to read language from config, default to system
-        self._current_lang = 'en'
+        self._current_lang = 'zh_CN'
         self._init_ui()
         self._connect_signals()
         self._load_task_list()
@@ -209,8 +210,7 @@ class MainWindow(QMainWindow):
             pass
         self._switch_language(lang)
         # Update combo to match
-        lang_map = {'en': 0, 'zh_CN': 1, 'ja_JP': 2}
-        idx = lang_map.get(lang, 0)
+        idx = 0 if lang == 'en' else 1
         self.setting_language.blockSignals(True)
         self.setting_language.setCurrentIndex(idx)
         self.setting_language.blockSignals(False)
@@ -443,7 +443,7 @@ class MainWindow(QMainWindow):
         general_form.addRow(tr('Theme') + ':', self.setting_theme)
 
         self.setting_language = QComboBox()
-        self.setting_language.addItems(['English', '中文', '日本語'])
+        self.setting_language.addItems(['English', '中文'])
         self.setting_language.setCurrentIndex(1)  # default 中文
         general_form.addRow(tr('Language') + ':', self.setting_language)
 
@@ -593,37 +593,67 @@ class MainWindow(QMainWindow):
         self._selected_task_json_name = task_name
         self._render_task_config(task_name)
 
+    def _load_args_json(self):
+        """Load args.json schema for config rendering."""
+        import json
+        paths = [
+            os.path.join(os.path.dirname(__file__), '..', 'config', 'argument', 'args.json'),
+            os.path.join(os.path.dirname(__file__), '..', '..', 'module', 'config', 'argument', 'args.json'),
+        ]
+        for p in paths:
+            if os.path.exists(p):
+                try:
+                    with open(p, 'r', encoding='utf-8') as f:
+                        return json.load(f)
+                except Exception:
+                    pass
+        return {}
+
     def _render_task_config(self, task_name):
-        """Render configuration UI for a task."""
+        """Render configuration UI for a task using args.json schema."""
         while self.config_layout.count():
             item = self.config_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
-        task_data = self._al_config.data.get(task_name, {})
-        if not task_data:
+        # Use args.json for schema (types, options) + template.json for current values
+        args_task = self._args_data.get(task_name, {})
+        json_task = self._al_config.data.get(task_name, {})
+
+        if not args_task and not json_task:
             label = QLabel(f'{tr("No config for")} "{task_name}"')
             label.setStyleSheet('color: #8888aa; font-size: 14px; padding: 20px;')
             self.config_layout.addWidget(label)
             return
 
-        for group_name, args in task_data.items():
+        # Use args.json groups as primary source; merge current values from template.json
+        for group_name, args_schema in args_task.items():
             if group_name == 'Storage':
                 continue
-            if not isinstance(args, dict):
+            if not isinstance(args_schema, dict):
                 continue
-            card = ConfigCard(group_name, args, task_name)
-            self.config_layout.addWidget(card)
+
+            # Merge current values from template.json into schema
+            json_group = json_task.get(group_name, {}) if json_task else {}
+            merged = {}
+            for arg_name, arg_schema in args_schema.items():
+                if not isinstance(arg_schema, dict):
+                    continue
+                entry = dict(arg_schema)  # copy schema
+                # Override value with current from template.json
+                if arg_name in json_group:
+                    entry['value'] = json_group[arg_name]
+                merged[arg_name] = entry
+
+            if merged:
+                card = ConfigCard(group_name, merged, task_name)
+                self.config_layout.addWidget(card)
 
         self.config_layout.addStretch()
 
     def _on_language_changed(self, text):
         """Handle language selection change."""
-        lang_map = {
-            'English': 'en',
-            '中文': 'zh_CN',
-            '日本語': 'ja_JP',
-        }
+        lang_map = {'English': 'en', '中文': 'zh_CN'}
         lang = lang_map.get(text, 'zh_CN')
         self._switch_language(lang)
 
@@ -656,19 +686,19 @@ class MainWindow(QMainWindow):
         self.tabs.setTabText(4, tr('Settings'))
         self.tabs.setTabText(5, tr('About'))
 
-        # Status indicator
+        # Status indicator — check both EN and ZH values
         current = self.status_indicator.text()
-        if current in (tr('Idle'), 'Idle', '空闲', '待機中'):
+        if current in (tr('Idle'), 'Idle', '空闲'):
             self.status_indicator.setText(tr('Idle'))
-        elif current in (tr('Running'), 'Running', '运行中', '実行中'):
+        elif current in (tr('Running'), 'Running', '运行中'):
             self.status_indicator.setText(tr('Running'))
-        elif current in (tr('Stopped'), 'Stopped', '已停止', '停止済'):
+        elif current in (tr('Stopped'), 'Stopped', '已停止'):
             self.status_indicator.setText(tr('Stopped'))
-        elif current in (tr('Paused'), 'Paused', '已暂停', '一時停止中'):
+        elif current in (tr('Paused'), 'Paused', '已暂停'):
             self.status_indicator.setText(tr('Paused'))
 
         # Status bar
-        if self.status_bar_label.text() in (tr('Ready'), 'Ready', '就绪', '準備完了'):
+        if self.status_bar_label.text() in (tr('Ready'), 'Ready', '就绪'):
             self.status_bar_label.setText(tr('Ready'))
 
     def _on_config_change(self, key, value):
