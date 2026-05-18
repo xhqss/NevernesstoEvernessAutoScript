@@ -38,6 +38,12 @@ class Communicate(QObject):
     # App lifecycle
     quit = Signal()
 
+    # Theme
+    theme_changed = Signal(str)  # 'dark' | 'light'
+
+    # Instance management
+    instance_list_changed = Signal()
+
     # Debug
     draw_box = Signal(object, str)
     draw_text = Signal(str, int, int)
