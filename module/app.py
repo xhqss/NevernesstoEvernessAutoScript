@@ -136,7 +136,8 @@ class App:
         from PySide6.QtWidgets import QApplication
 
         self.app = QApplication(sys.argv)
-        self.app.setApplicationName('al-script')
+        app_name = self.config.get('gui_title', 'al-script')
+        self.app.setApplicationName(app_name)
         self.app.setApplicationVersion(self.config.get('version', '0.1.0'))
 
         # Set icon
@@ -147,16 +148,22 @@ class App:
         except Exception:
             pass
 
-        # Create main window
+        # Create main window, passing full config for title/i18n/task info
         from module.gui.main_window import MainWindow
-        self.main_window = MainWindow(self.config.get('config_name', 'template'))
+        self.main_window = MainWindow(self.config)
         self.main_window.set_executor(self.task_executor)
         self.main_window.show()
 
         # Connect signals
         communicate.task_started.connect(self._on_gui_task_started)
         communicate.task_stopped.connect(self._on_gui_task_stopped)
+        communicate.task_paused.connect(self._on_gui_task_paused)
+        communicate.task_resumed.connect(self._on_gui_task_resumed)
         communicate.quit.connect(self.quit)
+
+        # Auto-start if configured
+        if self.config.get('auto_start', False):
+            self._start_execution()
 
         logger.info('GUI started')
         sys.exit(self.app.exec())
@@ -168,11 +175,31 @@ class App:
                 frame = self.device_manager.screenshot()
                 if frame is not None:
                     communicate.new_frame.emit(frame)
+            return
+        self._start_execution()
 
     def _on_gui_task_stopped(self):
         """Handle task stop from GUI."""
         if self.task_executor:
             self.task_executor.stop()
+        communicate.new_status.emit('Stopped')
+
+    def _on_gui_task_paused(self):
+        """Handle task pause from GUI."""
+        if self.task_executor:
+            self.task_executor.pause()
+
+    def _on_gui_task_resumed(self):
+        """Handle task resume from GUI."""
+        if self.task_executor:
+            self.task_executor.resume()
+
+    def _start_execution(self):
+        """Load tasks from config and start the executor."""
+        self.load_tasks_from_config()
+        if self.task_executor:
+            self.task_executor.start()
+            communicate.new_status.emit('Running')
 
     def _start_cli(self):
         """Start in CLI mode (headless)."""
@@ -204,11 +231,22 @@ class App:
         self.stop()
 
     def load_tasks_from_config(self):
-        """Load and register tasks from configuration."""
-        config_data = self.config.get('tasks', {})
-        onetime_tasks = config_data.get('onetime_tasks', [])
-        trigger_tasks = config_data.get('trigger_tasks', [])
-        scheduled_tasks = config_data.get('scheduled_tasks', [])
+        """Load and register tasks from configuration.
+
+        Supports two formats:
+        - make_config list format: ["module.path", "ClassName"]
+        - Dict format: {"module": "module.path", "class": "ClassName", "interval_minutes": 60}
+        """
+        onetime_tasks = self.config.get('onetime_tasks', [])
+        trigger_tasks = self.config.get('trigger_tasks', [])
+        scheduled_tasks = self.config.get('scheduled_tasks', [])
+
+        # Also support legacy 'tasks' dict wrapper
+        tasks_wrapper = self.config.get('tasks', {})
+        if tasks_wrapper:
+            onetime_tasks.extend(tasks_wrapper.get('onetime_tasks', []))
+            trigger_tasks.extend(tasks_wrapper.get('trigger_tasks', []))
+            scheduled_tasks.extend(tasks_wrapper.get('scheduled_tasks', []))
 
         for task_def in onetime_tasks:
             self._register_task(task_def, 'onetime')
@@ -220,11 +258,20 @@ class App:
             self._register_task(task_def, 'scheduled')
 
     def _register_task(self, task_def, task_type):
-        """Register a task from its definition."""
+        """Register a task from its definition (list or dict format)."""
         try:
-            module_name = task_def.get('module', '')
-            class_name = task_def.get('class', '')
-            interval = task_def.get('interval_minutes', 60)
+            # list format: ["module.path", "ClassName"]
+            if isinstance(task_def, (list, tuple)):
+                module_name, class_name = task_def[0], task_def[1]
+                interval = 60
+            # dict format: {"module": "...", "class": "...", "interval_minutes": ...}
+            elif isinstance(task_def, dict):
+                module_name = task_def.get('module', '')
+                class_name = task_def.get('class', '')
+                interval = task_def.get('interval_minutes', 60)
+            else:
+                logger.error(f'Unknown task definition format: {task_def}')
+                return
 
             if module_name and class_name:
                 import importlib
@@ -236,6 +283,9 @@ class App:
                     exit_event=self.exit_event,
                     handler=self.handler
                 )
+                # Inject feature_set
+                if hasattr(task, 'feature_set') and self.feature_set:
+                    task.feature_set = self.feature_set
 
                 if task_type == 'onetime':
                     self.task_executor.add_task(task)
@@ -247,6 +297,8 @@ class App:
                 logger.info(f'Registered {task_type} task: {class_name}')
         except Exception as e:
             logger.error(f'Failed to register task {task_def}: {e}')
+            import traceback
+            traceback.print_exc()
 
     @property
     def frame(self):

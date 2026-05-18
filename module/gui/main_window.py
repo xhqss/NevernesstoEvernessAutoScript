@@ -26,7 +26,14 @@ from module.config.utils import read_file, write_file, filepath_config
 from module.gui.communicate import communicate
 from module.gui.log_handler import GuiLogHandler
 from module.gui.overlay import ScreenshotViewer
+from module.i18n import translator, set_language
+from module.i18n import tr as _tr
 from module.util.logger import logger
+
+
+# Alias for short calls within this module
+def tr(key, default=None):
+    return _tr(key, default)
 
 
 # ====== Stylesheet ======
@@ -166,21 +173,52 @@ class ConfigCard(QFrame):
 class MainWindow(QMainWindow):
     """Main application window for al-script."""
 
-    def __init__(self, config_name='template'):
+    def __init__(self, config=None):
         super().__init__()
-        self.config_name = config_name
-        self.config = AlConfig(config_name)
+        # Accept either config dict or legacy string config_name
+        if isinstance(config, str):
+            self.config_name = config
+            self._full_config = {}
+        else:
+            self.config = config or {}
+            self.config_name = self.config.get('config_name', 'template')
+            self._full_config = config
+
+        self._al_config = AlConfig(self.config_name)
         self.executor = None
         self.task_thread = None
         self._boxes = []
 
+        # Init i18n: try to read language from config, default to system
+        self._current_lang = 'en'
         self._init_ui()
         self._connect_signals()
         self._load_task_list()
+        self._apply_language_from_config()
+
+    def _apply_language_from_config(self):
+        """Detect language from config or system locale."""
+        # Try to read from al_config storage
+        lang = 'zh_CN'  # default for this game
+        import locale
+        try:
+            sys_lang = locale.getdefaultlocale()[0]
+            if sys_lang and sys_lang.startswith('zh'):
+                lang = 'zh_CN'
+        except Exception:
+            pass
+        self._switch_language(lang)
+        # Update combo to match
+        lang_map = {'en': 0, 'zh_CN': 1, 'ja_JP': 2}
+        idx = lang_map.get(lang, 0)
+        self.setting_language.blockSignals(True)
+        self.setting_language.setCurrentIndex(idx)
+        self.setting_language.blockSignals(False)
 
     def _init_ui(self):
         """Initialize the user interface."""
-        self.setWindowTitle(f'al-script - {self.config_name}')
+        gui_title = self._full_config.get('gui_title', 'al-script')
+        self.setWindowTitle(f'{gui_title} - {self.config_name}')
         self.setMinimumSize(1200, 800)
         self.resize(1400, 900)
         self.setStyleSheet(DARK_THEME)
@@ -216,22 +254,12 @@ class MainWindow(QMainWindow):
             QTabBar::tab:hover { color: #ccccdd; }
         """)
 
-        # Tab: Task Config
+        # Create all tabs
         self._create_task_config_tab()
-
-        # Tab: Templates
         self._create_template_tab()
-
-        # Tab: Debug
         self._create_debug_tab()
-
-        # Tab: Log
         self._create_log_tab()
-
-        # Tab: Settings
         self._create_settings_tab()
-
-        # Tab: About
         self._create_about_tab()
 
         content_layout.addWidget(self.tabs)
@@ -252,11 +280,12 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(8)
 
-        title = QLabel('al-script')
+        gui_title = self._full_config.get('gui_title', 'al-script')
+        title = QLabel(gui_title)
         title.setStyleSheet('font-size: 18px; font-weight: bold; color: #ffffff; padding: 10px 0;')
         layout.addWidget(title)
 
-        task_label = QLabel('Tasks')
+        task_label = QLabel(tr('Tasks'))
         task_label.setStyleSheet('color: #8888aa; font-size: 11px; text-transform: uppercase;')
         layout.addWidget(task_label)
 
@@ -279,23 +308,23 @@ class MainWindow(QMainWindow):
             font-weight: bold; border: none; }
         """
 
-        self.btn_start = QPushButton('Start')
+        self.btn_start = QPushButton(tr('Start'))
         self.btn_start.setStyleSheet(btn_style + 'background-color: #22c55e; color: white;')
         layout.addWidget(self.btn_start)
 
-        self.btn_stop = QPushButton('Stop')
+        self.btn_stop = QPushButton(tr('Stop'))
         self.btn_stop.setStyleSheet(btn_style + 'background-color: #ef4444; color: white;')
         self.btn_stop.setEnabled(False)
         layout.addWidget(self.btn_stop)
 
-        self.btn_pause = QPushButton('Pause')
+        self.btn_pause = QPushButton(tr('Pause'))
         self.btn_pause.setStyleSheet(btn_style + 'background-color: #f59e0b; color: white;')
         self.btn_pause.setEnabled(False)
         layout.addWidget(self.btn_pause)
 
         layout.addStretch()
 
-        self.status_indicator = QLabel('Idle')
+        self.status_indicator = QLabel(tr('Idle'))
         self.status_indicator.setStyleSheet('color: #888888; font-size: 12px; padding: 5px;')
         layout.addWidget(self.status_indicator)
 
@@ -311,7 +340,7 @@ class MainWindow(QMainWindow):
         self.config_layout.setSpacing(8)
         self.config_layout.setContentsMargins(20, 20, 20, 20)
         self.config_scroll.setWidget(self.config_container)
-        self.tabs.addTab(self.config_scroll, 'Task Config')
+        self.tabs.addTab(self.config_scroll, tr('Task Config'))
 
     def _create_template_tab(self):
         """Create the template management tab."""
@@ -319,9 +348,10 @@ class MainWindow(QMainWindow):
         template_layout = QVBoxLayout(template_widget)
         template_layout.setContentsMargins(20, 20, 20, 20)
 
-        # Template list
         self.template_tree = QTreeWidget()
-        self.template_tree.setHeaderLabels(['Name', 'Type', 'Size', 'Path'])
+        self.template_tree.setHeaderLabels([
+            tr('Name'), tr('Type'), tr('Size'), tr('Path')
+        ])
         self.template_tree.setStyleSheet("""
             QTreeWidget {
                 background-color: #1a1a2e; color: #ccccdd;
@@ -336,14 +366,13 @@ class MainWindow(QMainWindow):
         """)
         template_layout.addWidget(self.template_tree)
 
-        # Buttons
         btn_layout = QHBoxLayout()
-        btn_refresh = QPushButton('Refresh Templates')
+        btn_refresh = QPushButton(tr('Refresh Templates'))
         btn_refresh.setStyleSheet(self._btn_style('#4a6cf7'))
         btn_refresh.clicked.connect(self._refresh_templates)
         btn_layout.addWidget(btn_refresh)
 
-        btn_import = QPushButton('Import PNG')
+        btn_import = QPushButton(tr('Import PNG'))
         btn_import.setStyleSheet(self._btn_style('#4a6cf7'))
         btn_import.clicked.connect(self._import_template)
         btn_layout.addWidget(btn_import)
@@ -352,7 +381,7 @@ class MainWindow(QMainWindow):
         template_layout.addLayout(btn_layout)
         template_layout.addStretch()
 
-        self.tabs.addTab(template_widget, 'Templates')
+        self.tabs.addTab(template_widget, tr('Templates'))
 
     def _create_debug_tab(self):
         """Create the debug/screenshot preview tab."""
@@ -360,31 +389,29 @@ class MainWindow(QMainWindow):
         debug_layout = QVBoxLayout(debug_widget)
         debug_layout.setContentsMargins(20, 20, 20, 20)
 
-        # Screenshot viewer
         self.screenshot_viewer = ScreenshotViewer()
         self.screenshot_viewer.setMinimumSize(640, 360)
         self.screenshot_viewer.setStyleSheet('border: 1px solid #3d3d5c; border-radius: 4px;')
         debug_layout.addWidget(self.screenshot_viewer)
 
-        # Info bar
         info_layout = QHBoxLayout()
-        self.debug_info_label = QLabel('No screenshot')
+        self.debug_info_label = QLabel(tr('No screenshot'))
         self.debug_info_label.setStyleSheet('color: #8888aa; font-size: 12px;')
         info_layout.addWidget(self.debug_info_label)
         info_layout.addStretch()
 
-        btn_screenshot = QPushButton('Take Screenshot')
+        btn_screenshot = QPushButton(tr('Take Screenshot'))
         btn_screenshot.setStyleSheet(self._btn_style('#4a6cf7'))
         btn_screenshot.clicked.connect(self._take_debug_screenshot)
         info_layout.addWidget(btn_screenshot)
 
-        btn_clear = QPushButton('Clear')
+        btn_clear = QPushButton(tr('Clear'))
         btn_clear.setStyleSheet(self._btn_style('#666688'))
         btn_clear.clicked.connect(lambda: self.screenshot_viewer.clear())
         info_layout.addWidget(btn_clear)
 
         debug_layout.addLayout(info_layout)
-        self.tabs.addTab(debug_widget, 'Debug')
+        self.tabs.addTab(debug_widget, tr('Debug'))
 
     def _create_log_tab(self):
         """Create the log viewer tab."""
@@ -397,7 +424,7 @@ class MainWindow(QMainWindow):
                 font-size: 12px; border: none; padding: 10px;
             }
         """)
-        self.tabs.addTab(self.log_view, 'Log')
+        self.tabs.addTab(self.log_view, tr('Log'))
 
     def _create_settings_tab(self):
         """Create the settings tab."""
@@ -407,54 +434,55 @@ class MainWindow(QMainWindow):
         settings_layout.setSpacing(12)
 
         # General settings
-        general_group = QGroupBox('General')
+        general_group = QGroupBox(tr('General'))
         general_form = QFormLayout()
         general_form.setSpacing(8)
 
         self.setting_theme = QComboBox()
-        self.setting_theme.addItems(['Dark', 'Light'])
-        general_form.addRow('Theme:', self.setting_theme)
+        self.setting_theme.addItems([tr('Dark'), tr('Light')])
+        general_form.addRow(tr('Theme') + ':', self.setting_theme)
 
         self.setting_language = QComboBox()
         self.setting_language.addItems(['English', '中文', '日本語'])
-        general_form.addRow('Language:', self.setting_language)
+        self.setting_language.setCurrentIndex(1)  # default 中文
+        general_form.addRow(tr('Language') + ':', self.setting_language)
 
         self.setting_auto_start = QCheckBox()
-        general_form.addRow('Auto-start on launch:', self.setting_auto_start)
+        general_form.addRow(tr('Auto-start on launch') + ':', self.setting_auto_start)
 
         general_group.setLayout(general_form)
         settings_layout.addWidget(general_group)
 
         # Debug settings
-        debug_group = QGroupBox('Debug')
+        debug_group = QGroupBox(tr('Debug'))
         debug_form = QFormLayout()
         debug_form.setSpacing(8)
 
         self.setting_use_overlay = QCheckBox()
-        debug_form.addRow('Enable debug overlay:', self.setting_use_overlay)
+        debug_form.addRow(tr('Enable debug overlay') + ':', self.setting_use_overlay)
 
         self.setting_show_logs_overlay = QCheckBox()
-        debug_form.addRow('Show logs on overlay:', self.setting_show_logs_overlay)
+        debug_form.addRow(tr('Show logs on overlay') + ':', self.setting_show_logs_overlay)
 
         debug_group.setLayout(debug_form)
         settings_layout.addWidget(debug_group)
 
         # Paths
-        paths_group = QGroupBox('Paths')
+        paths_group = QGroupBox(tr('Paths'))
         paths_form = QFormLayout()
         paths_form.setSpacing(8)
 
         self.setting_config_dir = QLineEdit('./config')
-        paths_form.addRow('Config directory:', self.setting_config_dir)
+        paths_form.addRow(tr('Config directory') + ':', self.setting_config_dir)
 
         self.setting_assets_dir = QLineEdit('./assets')
-        paths_form.addRow('Assets directory:', self.setting_assets_dir)
+        paths_form.addRow(tr('Assets directory') + ':', self.setting_assets_dir)
 
         paths_group.setLayout(paths_form)
         settings_layout.addWidget(paths_group)
 
         settings_layout.addStretch()
-        self.tabs.addTab(settings_widget, 'Settings')
+        self.tabs.addTab(settings_widget, tr('Settings'))
 
     def _create_about_tab(self):
         """Create the about tab."""
@@ -463,21 +491,20 @@ class MainWindow(QMainWindow):
         about_layout.setContentsMargins(40, 40, 40, 40)
         about_layout.setSpacing(12)
 
-        title = QLabel('al-script')
+        gui_title = self._full_config.get('gui_title', 'al-script')
+        title = QLabel(gui_title)
         title.setStyleSheet('font-size: 24px; font-weight: bold; color: #ffffff;')
         title.setAlignment(Qt.AlignCenter)
         about_layout.addWidget(title)
 
-        version = QLabel('Version 0.1.0')
+        ver = self._full_config.get('version', '0.1.0')
+        version = QLabel(f'{tr("Version")} {ver}')
         version.setStyleSheet('font-size: 14px; color: #8888aa;')
         version.setAlignment(Qt.AlignCenter)
         about_layout.addWidget(version)
 
-        desc = QLabel(
-            'A universal game automation framework.\n'
-            'Built from Alas (AzurLaneAutoScript) architecture\n'
-            'with ok-script multi-platform design.'
-        )
+        about_html = self._full_config.get('about', '<p>al-script automation framework</p>')
+        desc = QLabel(about_html)
         desc.setStyleSheet('font-size: 13px; color: #aaaacc; line-height: 1.5;')
         desc.setAlignment(Qt.AlignCenter)
         desc.setWordWrap(True)
@@ -490,7 +517,7 @@ class MainWindow(QMainWindow):
         copyright_label.setAlignment(Qt.AlignCenter)
         about_layout.addWidget(copyright_label)
 
-        self.tabs.addTab(about_widget, 'About')
+        self.tabs.addTab(about_widget, tr('About'))
 
     def _create_bottom_bar(self, parent_layout):
         """Create the bottom status bar."""
@@ -499,13 +526,13 @@ class MainWindow(QMainWindow):
         btn_bar_layout = QHBoxLayout(btn_bar)
         btn_bar_layout.setContentsMargins(15, 8, 15, 8)
 
-        self.btn_save = QPushButton('Save Config')
+        self.btn_save = QPushButton(tr('Save Config'))
         self.btn_save.setStyleSheet(self._btn_style('#4a6cf7'))
         btn_bar_layout.addWidget(self.btn_save)
 
         btn_bar_layout.addStretch()
 
-        self.status_bar_label = QLabel('Ready')
+        self.status_bar_label = QLabel(tr('Ready'))
         self.status_bar_label.setStyleSheet('color: #8888aa; font-size: 12px;')
         btn_bar_layout.addWidget(self.status_bar_label)
 
@@ -519,6 +546,8 @@ class MainWindow(QMainWindow):
         self.btn_save.clicked.connect(self._on_save)
         self.task_list.currentItemChanged.connect(self._on_task_selected)
 
+        self.setting_language.currentTextChanged.connect(self._on_language_changed)
+
         communicate.new_log.connect(self._on_new_log)
         communicate.log.connect(self._on_log)
         communicate.new_frame.connect(self._on_new_frame)
@@ -529,10 +558,36 @@ class MainWindow(QMainWindow):
     def _load_task_list(self):
         """Load task list from config."""
         self.task_list.clear()
-        for task_name in self.config.get_task_list():
-            item = QListWidgetItem(task_name)
-            item.setData(Qt.UserRole, task_name)
-            self.task_list.addItem(item)
+
+        # Add game-specific tasks from full config first
+        onetime = self._full_config.get('onetime_tasks', [])
+        trigger = self._full_config.get('trigger_tasks', [])
+
+        # Also check tasks loaded from JSON
+        json_tasks = self._al_config.get_task_list()
+
+        seen = set()
+        # Game tasks from make_config
+        for task_def in onetime + trigger:
+            if isinstance(task_def, (list, tuple)):
+                name = task_def[1] if len(task_def) > 1 else str(task_def)
+            elif isinstance(task_def, dict):
+                name = task_def.get('class', '')
+            else:
+                continue
+            if name and name not in seen:
+                seen.add(name)
+                item = QListWidgetItem(name)
+                item.setData(Qt.UserRole, name)
+                self.task_list.addItem(item)
+
+        # JSON scheduled tasks
+        for task_name in json_tasks:
+            if task_name not in seen:
+                seen.add(task_name)
+                item = QListWidgetItem(task_name)
+                item.setData(Qt.UserRole, task_name)
+                self.task_list.addItem(item)
 
         if self.task_list.count() > 0:
             self.task_list.setCurrentRow(0)
@@ -551,9 +606,9 @@ class MainWindow(QMainWindow):
             if item.widget():
                 item.widget().deleteLater()
 
-        task_data = self.config.data.get(task_name, {})
+        task_data = self._al_config.data.get(task_name, {})
         if not task_data:
-            label = QLabel(f'No config for "{task_name}"')
+            label = QLabel(f'{tr("No config for")} "{task_name}"')
             label.setStyleSheet('color: #8888aa; font-size: 14px; padding: 20px;')
             self.config_layout.addWidget(label)
             return
@@ -568,48 +623,98 @@ class MainWindow(QMainWindow):
 
         self.config_layout.addStretch()
 
+    def _on_language_changed(self, text):
+        """Handle language selection change."""
+        lang_map = {
+            'English': 'en',
+            '中文': 'zh_CN',
+            '日本語': 'ja_JP',
+        }
+        lang = lang_map.get(text, 'zh_CN')
+        self._switch_language(lang)
+
+    def _switch_language(self, lang):
+        """Switch UI language and refresh all text."""
+        set_language(lang)
+        self._current_lang = lang
+        self._refresh_ui_text()
+
+    def _refresh_ui_text(self):
+        """Refresh all UI text after language change."""
+        # Sidebar buttons
+        self.btn_start.setText(tr('Start'))
+        self.btn_stop.setText(tr('Stop'))
+        self.btn_pause.setText(tr('Pause'))
+        self.btn_save.setText(tr('Save Config'))
+
+        # Refresh pause button state
+        if self.btn_pause.isEnabled():
+            pass  # keep current text
+
+        # Tab labels
+        self.tabs.setTabText(0, tr('Task Config'))
+        self.tabs.setTabText(1, tr('Templates'))
+        self.tabs.setTabText(2, tr('Debug'))
+        self.tabs.setTabText(3, tr('Log'))
+        self.tabs.setTabText(4, tr('Settings'))
+        self.tabs.setTabText(5, tr('About'))
+
+        # Status
+        current_status = self.status_indicator.text()
+        status_map = {'Idle': tr('Idle'), 'Running': tr('Running'),
+                       'Stopped': tr('Stopped'), 'Paused': tr('Paused')}
+        # Check English strings as keys
+        for eng, loc in [('Idle', tr('Idle')), ('Running', tr('Running')),
+                          ('Stopped', tr('Stopped')), ('Paused', tr('Paused')),
+                          ('Ready', tr('Ready'))]:
+            if self.status_indicator.text() in (eng, tr(eng)):
+                self.status_indicator.setText(tr(eng) if tr(eng) != eng else loc)
+                break
+
     def _on_config_change(self, key, value):
         """Handle config value change."""
-        deep_set(self.config.data, keys=key.split('.'), value=value)
+        deep_set(self._al_config.data, keys=key.split('.'), value=value)
         communicate.config_changed.emit()
 
     def _on_save(self):
         """Save config."""
-        self.config.save()
-        self.status_bar_label.setText('Config saved')
+        self._al_config.save()
+        self.status_bar_label.setText(tr('Config saved'))
         communicate.config_saved.emit()
-        QTimer.singleShot(3000, lambda: self.status_bar_label.setText('Ready'))
+        QTimer.singleShot(3000, lambda: self.status_bar_label.setText(tr('Ready')))
 
     def _on_start(self):
         """Start task execution."""
         self.btn_start.setEnabled(False)
         self.btn_stop.setEnabled(True)
         self.btn_pause.setEnabled(True)
-        self.status_indicator.setText('Running')
+        self.btn_pause.setText(tr('Pause'))
+        self.status_indicator.setText(tr('Running'))
         self.status_indicator.setStyleSheet('color: #22c55e; font-size: 12px; padding: 5px;')
+        self.status_bar_label.setText(tr('Task started'))
         communicate.task_started.emit(self.config_name)
-        logger.info('Task started')
+        logger.info('Task started via GUI')
 
     def _on_stop(self):
         """Stop task execution."""
         self.btn_start.setEnabled(True)
         self.btn_stop.setEnabled(False)
         self.btn_pause.setEnabled(False)
-        self.status_indicator.setText('Stopped')
+        self.status_indicator.setText(tr('Stopped'))
         self.status_indicator.setStyleSheet('color: #ef4444; font-size: 12px; padding: 5px;')
         communicate.task_stopped.emit()
-        logger.info('Task stopped')
+        logger.info('Task stopped via GUI')
 
     def _on_pause(self):
         """Toggle pause."""
-        if self.btn_pause.text() == 'Pause':
-            self.btn_pause.setText('Resume')
-            self.status_indicator.setText('Paused')
+        if self.btn_pause.text() in (tr('Pause'), 'Pause'):
+            self.btn_pause.setText(tr('Resume'))
+            self.status_indicator.setText(tr('Paused'))
             self.status_indicator.setStyleSheet('color: #f59e0b; font-size: 12px; padding: 5px;')
             communicate.task_paused.emit()
         else:
-            self.btn_pause.setText('Pause')
-            self.status_indicator.setText('Running')
+            self.btn_pause.setText(tr('Pause'))
+            self.status_indicator.setText(tr('Running'))
             self.status_indicator.setStyleSheet('color: #22c55e; font-size: 12px; padding: 5px;')
             communicate.task_resumed.emit()
 
@@ -633,7 +738,7 @@ class MainWindow(QMainWindow):
         if frame is not None:
             self.screenshot_viewer.set_image(frame)
             h, w = frame.shape[:2]
-            self.debug_info_label.setText(f'Screenshot: {w}x{h}')
+            self.debug_info_label.setText(f'{tr("Screenshot")}: {w}x{h}')
 
     @Slot(object)
     def _on_new_boxes(self, boxes):
@@ -661,7 +766,7 @@ class MainWindow(QMainWindow):
                     size = os.path.getsize(path)
                     item = QTreeWidgetItem([
                         os.path.splitext(file)[0],
-                        'Template' if file.startswith('TEMPLATE_') else 'Button',
+                        tr('Template') if file.startswith('TEMPLATE_') else tr('Button'),
                         f'{size / 1024:.1f} KB',
                         rel_path
                     ])
@@ -670,7 +775,7 @@ class MainWindow(QMainWindow):
     def _import_template(self):
         """Import a PNG file as a template."""
         path, _ = QFileDialog.getOpenFileName(
-            self, 'Import Template', '', 'PNG Images (*.png);;All Files (*)'
+            self, tr('Import PNG'), '', 'PNG Images (*.png);;All Files (*)'
         )
         if path:
             dest_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'assets', 'default', 'imported')
