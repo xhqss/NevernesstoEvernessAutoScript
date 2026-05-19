@@ -5,10 +5,10 @@
 
 DefaultTask:
   Device:
-    Platform: auto
-    Serial: auto
-    ScreenshotMethod: auto
-    ControlMethod: auto
+    Platform: PC
+    EmulatorSerial: "127.0.0.1:7555"
+    ScreenshotMethod: WindowsGraphics
+    ControlMethod: PostMessage
   Ocr:
     Engine: default
   Window:
@@ -21,6 +21,16 @@ DefaultTask:
     ArcKey: "r"
     DodgeKey: "shift"
     InteractKey: "f"
+  Restart:
+    SchedulerWatcher_Enable: false
+    SchedulerWatcher_TimeDelta: 10
+    SchedulerWatcher_WarningCount: 3
+    GameRestart_FatalErrorRestart: false
+    GameRestart_MaxRetryTimes: 20
+    CloseTask_Enable: false
+    CloseTask_MaxErrorOccur: 2
+    InstanceRestart_Enable: false
+    InstanceRestart_MaxRetryTimes: 20
   NTEMonthlyCard:
     CheckMonthlyCard: true
     MonthlyCardTime: 5
@@ -36,7 +46,7 @@ DefaultTask:
 
 Launcher:
   Device:
-    Platform: pc
+    Platform: PC
   Window:
     Exe: "HTGame.exe"
     Class: "UnrealWindow"

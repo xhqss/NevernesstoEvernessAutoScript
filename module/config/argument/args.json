@@ -1,77 +1,41 @@
 {
   "DefaultTask": {
-    "Scheduler": {
-      "Enable": {
-        "type": "checkbox",
-        "value": false,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "NextRun": {
-        "type": "datetime",
-        "value": "2020-01-01 00:00:00",
-        "validate": "datetime"
-      },
-      "Command": {
-        "type": "state",
-        "value": "DefaultTask",
-        "display": "hide"
-      },
-      "SuccessInterval": {
-        "type": "input",
-        "value": 0,
-        "display": "hide"
-      },
-      "FailureInterval": {
-        "type": "input",
-        "value": 120,
-        "display": "hide"
-      },
-      "ServerUpdate": {
-        "type": "input",
-        "value": "00:00",
-        "display": "hide"
-      }
-    },
     "Device": {
       "Platform": {
         "type": "select",
-        "value": "auto",
+        "value": "PC",
         "option": [
-          "auto",
-          "pc",
-          "adb"
+          "PC",
+          "Emulator"
         ]
       },
-      "Serial": {
+      "EmulatorSerial": {
         "type": "input",
-        "value": "auto",
-        "valuetype": "str"
+        "value": "127.0.0.1:7555",
+        "valuetype": "str",
+        "display": "hide"
       },
       "ScreenshotMethod": {
         "type": "select",
-        "value": "auto",
+        "value": "WindowsGraphics",
         "option": [
-          "auto",
-          "ADB",
           "WindowsGraphics",
           "BitBlt",
+          "ADB",
           "scrcpy",
           "nemu_ipc"
         ]
       },
       "ControlMethod": {
         "type": "select",
-        "value": "auto",
+        "value": "PostMessage",
         "option": [
-          "auto",
-          "ADB",
           "PostMessage",
           "PyDirectInput",
+          "ADB",
           "minitouch",
-          "maatouch"
+          "maatouch",
+          "nemu_ipc"
         ]
       }
     },
@@ -86,7 +50,8 @@
           "rapid",
           "dgocr",
           "onnx"
-        ]
+        ],
+        "display": "hide"
       },
       "TargetHeight": {
         "type": "input",
@@ -138,82 +103,8 @@
         "valuetype": "str"
       }
     },
-    "NTEMonthlyCard": {
-      "CheckMonthlyCard": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "MonthlyCardTime": {
-        "type": "input",
-        "value": 5,
-        "valuetype": "int"
-      }
-    },
-    "NTESoundTrigger": {
-      "EnableSoundTrigger": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "DodgeAllAttacks": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "DodgeThreshold": {
-        "type": "input",
-        "value": 0.13,
-        "valuetype": "float"
-      },
-      "CounterAttackThreshold": {
-        "type": "input",
-        "value": 0.12,
-        "valuetype": "float"
-      }
-    },
-    "NTELauncher": {
-      "GameExe": {
-        "type": "input",
-        "value": "HTGame.exe",
-        "valuetype": "str"
-      },
-      "GameClass": {
-        "type": "input",
-        "value": "UnrealWindow",
-        "valuetype": "str"
-      },
-      "LaunchMethod": {
-        "type": "select",
-        "value": "auto",
-        "option": [
-          "auto",
-          "steam",
-          "standalone"
-        ]
-      }
-    },
-    "Storage": {
-      "Storage": {
-        "type": "storage",
-        "value": {},
-        "valuetype": "ignore",
-        "display": "disabled"
-      }
-    }
-  },
-  "Launcher": {
-    "Scheduler": {
-      "Enable": {
+    "Restart": {
+      "SchedulerWatcher_Enable": {
         "type": "checkbox",
         "value": false,
         "option": [
@@ -221,68 +112,54 @@
           false
         ]
       },
-      "NextRun": {
-        "type": "datetime",
-        "value": "2020-01-01 00:00:00",
-        "validate": "datetime"
-      },
-      "Command": {
-        "type": "state",
-        "value": "Launcher",
-        "display": "hide"
-      },
-      "SuccessInterval": {
+      "SchedulerWatcher_TimeDelta": {
         "type": "input",
-        "value": 0,
-        "display": "hide"
+        "value": 10,
+        "valuetype": "int"
       },
-      "FailureInterval": {
+      "SchedulerWatcher_WarningCount": {
         "type": "input",
-        "value": 120,
-        "display": "hide"
+        "value": 3,
+        "valuetype": "int"
       },
-      "ServerUpdate": {
-        "type": "input",
-        "value": "00:00",
-        "display": "hide"
-      }
-    },
-    "Window": {
-      "Title": {
-        "type": "input",
-        "value": "",
-        "valuetype": "str"
-      },
-      "Class": {
-        "type": "input",
-        "value": "UnrealWindow",
-        "valuetype": "str"
-      },
-      "Exe": {
-        "type": "input",
-        "value": "HTGame.exe",
-        "valuetype": "str"
-      }
-    },
-    "NTELauncher": {
-      "GameExe": {
-        "type": "input",
-        "value": "HTGame.exe",
-        "valuetype": "str"
-      },
-      "GameClass": {
-        "type": "input",
-        "value": "UnrealWindow",
-        "valuetype": "str"
-      },
-      "LaunchMethod": {
-        "type": "select",
-        "value": "auto",
+      "GameRestart_FatalErrorRestart": {
+        "type": "checkbox",
+        "value": false,
         "option": [
-          "auto",
-          "steam",
-          "standalone"
+          true,
+          false
         ]
+      },
+      "GameRestart_MaxRetryTimes": {
+        "type": "input",
+        "value": 20,
+        "valuetype": "int"
+      },
+      "CloseTask_Enable": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "CloseTask_MaxErrorOccur": {
+        "type": "input",
+        "value": 2,
+        "valuetype": "int"
+      },
+      "InstanceRestart_Enable": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "InstanceRestart_MaxRetryTimes": {
+        "type": "input",
+        "value": 20,
+        "valuetype": "int"
       }
     },
     "Storage": {
@@ -291,6 +168,13 @@
         "value": {},
         "valuetype": "ignore",
         "display": "disabled"
+      }
+    },
+    "Scheduler": {
+      "Command": {
+        "type": "state",
+        "display": "hide",
+        "value": "DefaultTask"
       }
     }
   },
@@ -587,6 +471,66 @@
       }
     }
   },
+  "Heist": {
+    "Scheduler": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "NextRun": {
+        "type": "datetime",
+        "value": "2020-01-01 00:00:00",
+        "validate": "datetime"
+      },
+      "Command": {
+        "type": "state",
+        "value": "Heist",
+        "display": "hide"
+      },
+      "SuccessInterval": {
+        "type": "input",
+        "value": 0,
+        "display": "hide"
+      },
+      "FailureInterval": {
+        "type": "input",
+        "value": 120,
+        "display": "hide"
+      },
+      "ServerUpdate": {
+        "type": "input",
+        "value": "00:00",
+        "display": "hide"
+      }
+    },
+    "NTEHeist": {
+      "EnableHeist": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "HeistKeyInterval": {
+        "type": "input",
+        "value": 0.05,
+        "valuetype": "float"
+      }
+    },
+    "Storage": {
+      "Storage": {
+        "type": "storage",
+        "value": {},
+        "valuetype": "ignore",
+        "display": "disabled"
+      }
+    }
+  },
   "AutoCombat": {
     "Scheduler": {
       "Enable": {
@@ -783,66 +727,6 @@
           "map",
           "quest"
         ]
-      }
-    },
-    "Storage": {
-      "Storage": {
-        "type": "storage",
-        "value": {},
-        "valuetype": "ignore",
-        "display": "disabled"
-      }
-    }
-  },
-  "Heist": {
-    "Scheduler": {
-      "Enable": {
-        "type": "checkbox",
-        "value": false,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "NextRun": {
-        "type": "datetime",
-        "value": "2020-01-01 00:00:00",
-        "validate": "datetime"
-      },
-      "Command": {
-        "type": "state",
-        "value": "Heist",
-        "display": "hide"
-      },
-      "SuccessInterval": {
-        "type": "input",
-        "value": 0,
-        "display": "hide"
-      },
-      "FailureInterval": {
-        "type": "input",
-        "value": 120,
-        "display": "hide"
-      },
-      "ServerUpdate": {
-        "type": "input",
-        "value": "00:00",
-        "display": "hide"
-      }
-    },
-    "NTEHeist": {
-      "EnableHeist": {
-        "type": "checkbox",
-        "value": false,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "HeistKeyInterval": {
-        "type": "input",
-        "value": 0.05,
-        "valuetype": "float"
       }
     },
     "Storage": {

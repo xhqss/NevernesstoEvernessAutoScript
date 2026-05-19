@@ -1,125 +1,47 @@
 """
-Task config tab — renders ConfigCards + KeyBindTable for a selected task.
-Follows ok-nte's Tab(ScrollArea) + ConfigCard pattern.
+Task config tab — renders all NTE tasks as collapsible bars.
+Each task is an ExpandSettingCard; expand to see detailed settings.
 """
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import (
     QLabel, QWidget, QHBoxLayout, QVBoxLayout, QScrollArea,
 )
-from qfluentwidgets import FluentIcon, PushButton, ComboBox, CardWidget, SubtitleLabel
+from qfluentwidgets import (
+    FluentIcon, PushButton, ComboBox, CardWidget, SubtitleLabel,
+    ExpandSettingCard, SwitchButton, IndicatorPosition,
+)
 
 from module.config import deep_set
 from module.gui.config_adapter import GroupConfigAdapter
-from module.gui.config_widgets import ConfigCard
+from module.gui.config_widgets import ConfigCard, config_widget
 from module.gui.keybind_table import KeyBindTable
 from module.gui.communicate import communicate
 from module.i18n import tr
 from module.util.logger import logger
 
 
-class TaskConfigTab(QScrollArea):
-    """Scrollable tab with task selector, start/stop controls, and config cards."""
+class TaskBar(ExpandSettingCard):
+    """A single task rendered as a collapsible bar with inline Start/Stop."""
 
-    def __init__(self, al_config, args_data, gui_labels, parent=None):
-        super().__init__(parent)
-        self.setObjectName('taskConfigTab')
-        self.setWidgetResizable(True)
-
+    def __init__(self, task_name: str, al_config, args_data, gui_labels, parent=None):
+        display_name = tr(task_name, default=task_name)
+        super().__init__(FluentIcon.APPLICATION, display_name, '')
+        self._task_name = task_name
         self._al_config = al_config
         self._args_data = args_data
         self._gui_labels = gui_labels
-        self._task_cards = {}
-        self._current_task = None
+        self._widgets = []
+        self.__init_widgets()
 
-        self._save_timer = QTimer(self)
-        self._save_timer.setSingleShot(True)
-        self._save_timer.timeout.connect(self._do_save)
+    def __init_widgets(self):
+        self.viewLayout.setSpacing(0)
+        self.viewLayout.setAlignment(Qt.AlignTop)
+        self.viewLayout.setContentsMargins(10, 4, 10, 4)
 
-        self._init_ui()
-
-    def _init_ui(self):
-        # Container widget inside ScrollArea
-        self.view = QWidget()
-        self.view.setObjectName('view')
-        self.vBoxLayout = QVBoxLayout(self.view)
-        self.vBoxLayout.setContentsMargins(24, 16, 24, 16)
-        self.vBoxLayout.setSpacing(8)
-        self.setWidget(self.view)
-
-        # ── control bar ──
-        bar = QWidget()
-        bl = QHBoxLayout(bar)
-        bl.setContentsMargins(0, 0, 0, 8)
-
-        bl.addWidget(QLabel(tr('Tasks') + ':'))
-
-        self._task_combo = ComboBox()
-        self._task_combo.setMinimumWidth(160)
-        self._task_combo.currentIndexChanged.connect(self._on_combo_changed)
-        bl.addWidget(self._task_combo)
-        bl.addStretch()
-
-        self._btn_start = PushButton(FluentIcon.PLAY, tr('Start'))
-        self._btn_start.clicked.connect(self._on_start)
-        bl.addWidget(self._btn_start)
-
-        self._btn_stop = PushButton(FluentIcon.CLOSE, tr('Stop'))
-        self._btn_stop.setEnabled(False)
-        self._btn_stop.clicked.connect(self._on_stop)
-        bl.addWidget(self._btn_stop)
-
-        self._btn_pause = PushButton(FluentIcon.PAUSE, tr('Pause'))
-        self._btn_pause.setEnabled(False)
-        self._btn_pause.clicked.connect(self._on_pause)
-        bl.addWidget(self._btn_pause)
-
-        self.vBoxLayout.addWidget(bar)
-
-    # ── task list ────────────────────────────────────────
-
-    def _on_combo_changed(self, index):
-        if index < 0:
-            return
-        task_name = self._task_combo.itemData(index)
-        if task_name:
-            self.load_task(task_name)
-
-    def load_tasks(self, task_names):
-        self._task_combo.blockSignals(True)
-        self._task_combo.clear()
-        for tn in task_names:
-            self._task_combo.addItem(tr(tn, default=tn), tn)
-        self._task_combo.blockSignals(False)
-
-    def load_task(self, task_name):
-        if task_name == self._current_task:
-            return
-        self._current_task = task_name
-        self._clear()
-        self._render(task_name)
-
-    def selected_task_name(self):
-        return self._current_task
-
-    def _clear(self):
-        # Remove all widgets after control bar
-        while self.vBoxLayout.count() > 1:
-            item = self.vBoxLayout.takeAt(self.vBoxLayout.count() - 1)
-            if item.widget():
-                item.widget().deleteLater()
-        self._task_cards.clear()
-
-    def _render(self, task_name):
-        args_task = self._args_data.get(task_name, {})
-        json_task = self._al_config.data.get(task_name, {})
+        args_task = self._args_data.get(self._task_name, {})
+        json_task = self._al_config.data.get(self._task_name, {})
         gui_labels = self._gui_labels
-
-        if not args_task and not json_task:
-            self.vBoxLayout.addWidget(
-                QLabel(f'{tr("No config for")} "{task_name}"')
-            )
-            return
 
         for group_name, args_schema in args_task.items():
             if group_name == 'Storage' or not isinstance(args_schema, dict):
@@ -130,6 +52,8 @@ class TaskConfigTab(QScrollArea):
             for arg_name, arg_schema in args_schema.items():
                 if not isinstance(arg_schema, dict):
                     continue
+                if arg_schema.get('display') == 'hide' or arg_schema.get('display') == 'disabled':
+                    continue
                 entry = dict(arg_schema)
                 if arg_name in json_group:
                     entry['value'] = json_group[arg_name]
@@ -139,70 +63,124 @@ class TaskConfigTab(QScrollArea):
                 continue
 
             if group_name == 'NTEKeyBinding':
-                self._add_keybind_card(task_name, group_name, merged, gui_labels)
+                self._add_keybind_row(merged, gui_labels)
                 continue
 
             adapter = GroupConfigAdapter(
-                self._al_config.data, task_name, group_name, merged
+                self._al_config.data, self._task_name, group_name, merged
             )
-            card = ConfigCard(
-                group_name, merged, adapter, gui_labels.get(group_name)
+            if group_name == 'Device':
+                from module.gui.config_widgets import DeviceConfigCard
+                inner_card = DeviceConfigCard(
+                    group_name, merged, adapter, gui_labels.get(group_name)
+                )
+            else:
+                inner_card = ConfigCard(
+                    group_name, merged, adapter, gui_labels.get(group_name)
+                )
+            self.viewLayout.addWidget(inner_card)
+
+        self.setExpand(False)
+        self._adjustViewSize()
+
+    def _add_keybind_row(self, merged, gui_labels):
+        wrapper = CardWidget()
+        wl = QVBoxLayout(wrapper)
+        wl.setContentsMargins(8, 4, 8, 4)
+        group_name = 'NTEKeyBinding'
+        title = (gui_labels.get(group_name, {}) or {}).get('_info', group_name)
+        wl.addWidget(SubtitleLabel(tr(group_name, default=title)))
+
+        row = QWidget()
+        rl = QHBoxLayout(row)
+        rl.setSpacing(6)
+        rl.setContentsMargins(0, 0, 0, 0)
+
+        for key_name in ('SkillKey', 'UltimateKey', 'ArcKey', 'DodgeKey', 'InteractKey'):
+            item = QWidget()
+            il = QVBoxLayout(item)
+            il.setSpacing(2)
+            il.setContentsMargins(4, 2, 4, 2)
+            lbl = QLabel(tr(key_name, default=key_name))
+            lbl.setStyleSheet('font-size:11px; color:#888;')
+            lbl.setAlignment(Qt.AlignCenter)
+            il.addWidget(lbl)
+
+            val = merged.get(key_name, {}).get('value', '')
+            btn = QLabel(str(val))
+            btn.setStyleSheet(
+                'font-size:13px; font-weight:bold; padding:4px 12px; '
+                'background:#2a2a3e; border:1px solid #444; border-radius:4px;'
             )
-            self.vBoxLayout.addWidget(card)
+            btn.setAlignment(Qt.AlignCenter)
+            il.addWidget(btn)
+            rl.addWidget(item)
+
+        wl.addWidget(row)
+        self.viewLayout.addWidget(wrapper)
+
+
+class TaskConfigTab(QScrollArea):
+    """Scrollable tab showing all NTE tasks as collapsible bars."""
+
+    def __init__(self, al_config=None, args_data=None, gui_labels=None, parent=None):
+        super().__init__(parent)
+        self.setObjectName('taskConfigTab')
+        self.setWidgetResizable(True)
+
+        self._al_config = al_config
+        self._args_data = args_data or {}
+        self._gui_labels = gui_labels or {}
+        self._task_bars = {}
+
+        self._save_timer = QTimer(self)
+        self._save_timer.setSingleShot(True)
+        self._save_timer.timeout.connect(self._do_save)
+
+        self._init_ui()
+
+    def _init_ui(self):
+        self.view = QWidget()
+        self.view.setObjectName('view')
+        self.vBoxLayout = QVBoxLayout(self.view)
+        self.vBoxLayout.setContentsMargins(24, 16, 24, 16)
+        self.vBoxLayout.setSpacing(8)
+        self.setWidget(self.view)
+
+    def set_config(self, al_config, args_data, gui_labels):
+        self._al_config = al_config
+        self._args_data = args_data
+        self._gui_labels = gui_labels
+
+    def load_all_tasks(self):
+        self._clear()
+        if not self._al_config:
+            return
+        tasks = self._al_config.get_task_list()
+        for task_name in tasks:
+            args_task = self._args_data.get(task_name, {})
+            if not args_task:
+                continue
+            bar = TaskBar(
+                task_name, self._al_config,
+                self._args_data, self._gui_labels
+            )
+            self._task_bars[task_name] = bar
+            self.vBoxLayout.addWidget(bar)
 
         self.vBoxLayout.addStretch()
 
-    def _add_keybind_card(self, task_name, group_name, merged, gui_labels):
-        wrapper = CardWidget()
-        wl = QVBoxLayout(wrapper)
-        title = (gui_labels.get(group_name, {}) or {}).get('_info', group_name)
-        wl.addWidget(SubtitleLabel(tr(group_name, default=title)))
-        current_keys = {a: d.get('value', '') for a, d in merged.items()}
-        table = KeyBindTable(current_keys)
-        table.key_changed.connect(
-            lambda k, v, t=task_name, g=group_name:
-                deep_set(self._al_config.data, f'{t}.{g}.{k}'.split('.'), v)
-        )
-        table.key_changed.connect(lambda *_: self.schedule_save())
-        wl.addWidget(table)
-        self.vBoxLayout.addWidget(wrapper)
-
-    def re_render(self):
-        if self._current_task:
-            self._clear()
-            self._render(self._current_task)
-
-    # ── task control ────────────────────────────────────────
-
-    def _on_start(self):
-        if not self._current_task:
-            return
-        self._do_save()
-        self._btn_start.setEnabled(False)
-        self._btn_stop.setEnabled(True)
-        self._btn_pause.setEnabled(True)
-        communicate.task_started.emit(self._current_task)
-        logger.info(f'Task started: {self._current_task}')
-
-    def _on_stop(self):
-        self._btn_start.setEnabled(True)
-        self._btn_stop.setEnabled(False)
-        self._btn_pause.setEnabled(False)
-        communicate.task_stopped.emit()
-
-    def _on_pause(self):
-        if self._btn_pause.text() == tr('Pause'):
-            self._btn_pause.setText(tr('Resume'))
-            communicate.task_paused.emit()
-        else:
-            self._btn_pause.setText(tr('Pause'))
-            communicate.task_resumed.emit()
-
-    # ── auto-save ────────────────────────────────────────
+    def _clear(self):
+        while self.vBoxLayout.count() > 0:
+            item = self.vBoxLayout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        self._task_bars.clear()
 
     def schedule_save(self):
         self._save_timer.start(2000)
 
     def _do_save(self):
-        self._al_config.save()
-        communicate.config_saved.emit()
+        if self._al_config:
+            self._al_config.save()
+            communicate.config_saved.emit()

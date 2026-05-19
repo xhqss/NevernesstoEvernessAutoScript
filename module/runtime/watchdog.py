@@ -26,11 +26,13 @@ except ImportError:
 
 
 FROZEN_SCREEN_THRESHOLD_S = 60
-STALE_STATE_THRESHOLD_S = 30
+STALE_STATE_THRESHOLD_S = 120
 TICK_STARVATION_THRESHOLD_S = 5
-MEMORY_GROWTH_THRESHOLD = 0.05  # 5% per hour
+MEMORY_GROWTH_THRESHOLD = 0.20  # 20% per hour
 CPU_SPIKE_THRESHOLD = 0.90  # 90%
 OCR_LOOP_THRESHOLD = 10  # same OCR result 10x = loop
+
+ALERT_COOLDOWN_S = 60  # minimum seconds between same-type alerts
 
 
 class Watchdog:
@@ -60,6 +62,8 @@ class Watchdog:
 
         # CPU
         self._cpu_samples: deque[float] = deque(maxlen=60)
+
+        self._alert_cooldowns: dict[str, float] = {}
 
         bus.subscribe("TICK_END", self._on_tick)
         bus.subscribe("STATE_CHANGED", self._on_state_change)
@@ -118,6 +122,14 @@ class Watchdog:
             except Exception:
                 logger.error('Watchdog check error', exc_info=True)
 
+    def _can_alert(self, alert_type: str) -> bool:
+        now = time.time()
+        last = self._alert_cooldowns.get(alert_type, 0)
+        if now - last < ALERT_COOLDOWN_S:
+            return False
+        self._alert_cooldowns[alert_type] = now
+        return True
+
     def check(self):
         now = time.time()
 
@@ -126,7 +138,7 @@ class Watchdog:
             oldest_ts, oldest_hash = self._frame_hashes[0]
             if now - oldest_ts > FROZEN_SCREEN_THRESHOLD_S:
                 all_same = all(h == oldest_hash for _, h in self._frame_hashes)
-                if all_same and oldest_hash:
+                if all_same and oldest_hash and self._can_alert("FROZEN_SCREEN"):
                     logger.warning('FROZEN_SCREEN detected')
                     bus.emit("WATCHDOG_ALERT", {
                         "type": "FROZEN_SCREEN",
@@ -135,16 +147,16 @@ class Watchdog:
 
         # Tick starvation
         if now - self._last_tick_ts > TICK_STARVATION_THRESHOLD_S:
-            logger.warning('TICK_STARVATION detected')
-            bus.emit("WATCHDOG_ALERT", {
-                "type": "TICK_STARVATION",
-                "last_tick_age_s": now - self._last_tick_ts,
-            })
+            if self._can_alert("TICK_STARVATION"):
+                logger.warning('TICK_STARVATION detected')
+                bus.emit("WATCHDOG_ALERT", {
+                    "type": "TICK_STARVATION",
+                    "last_tick_age_s": now - self._last_tick_ts,
+                })
 
-        # Stale state
+        # Stale state — only alert when actively RUNNING
         if now - self._state_change_ts > STALE_STATE_THRESHOLD_S:
-            # Only alert if runtime is RUNNING (not INIT or STOPPED)
-            if self.ctx.state not in ("INIT", "STOPPED"):
+            if self.ctx.state == "RUNNING" and self._can_alert("STALE_STATE"):
                 bus.emit("WATCHDOG_ALERT", {
                     "type": "STALE_STATE",
                     "state": self.ctx.state,
@@ -155,11 +167,12 @@ class Watchdog:
         if len(self._ocr_results) >= OCR_LOOP_THRESHOLD:
             recent = list(self._ocr_results)[-OCR_LOOP_THRESHOLD:]
             if len(set(recent)) == 1 and recent[0]:
-                logger.warning('OCR_LOOP detected')
-                bus.emit("WATCHDOG_ALERT", {
-                    "type": "OCR_LOOP",
-                    "repeated_result": recent[0],
-                })
+                if self._can_alert("OCR_LOOP"):
+                    logger.warning('OCR_LOOP detected')
+                    bus.emit("WATCHDOG_ALERT", {
+                        "type": "OCR_LOOP",
+                        "repeated_result": recent[0],
+                    })
 
         # Memory growth
         if self._baseline_memory > 0:
@@ -167,11 +180,12 @@ class Watchdog:
             hours = max(0.001, (now - self._baseline_ts) / 3600.0)
             growth_rate = (current - self._baseline_memory) / max(1, self._baseline_memory) / hours
             if growth_rate > MEMORY_GROWTH_THRESHOLD:
-                bus.emit("WATCHDOG_ALERT", {
-                    "type": "MEMORY_GROWTH",
-                    "growth_rate_per_hour": growth_rate,
-                    "current_mb": current,
-                })
+                if self._can_alert("MEMORY_GROWTH"):
+                    bus.emit("WATCHDOG_ALERT", {
+                        "type": "MEMORY_GROWTH",
+                        "growth_rate_per_hour": growth_rate,
+                        "current_mb": current,
+                    })
 
         # CPU spike
         cpu = _get_cpu_percent()
@@ -180,10 +194,11 @@ class Watchdog:
             if len(self._cpu_samples) >= 3:
                 avg = sum(self._cpu_samples) / len(self._cpu_samples)
                 if avg > CPU_SPIKE_THRESHOLD:
-                    bus.emit("WATCHDOG_ALERT", {
-                        "type": "CPU_SPIKE",
-                        "cpu_avg": avg,
-                    })
+                    if self._can_alert("CPU_SPIKE"):
+                        bus.emit("WATCHDOG_ALERT", {
+                            "type": "CPU_SPIKE",
+                            "cpu_avg": avg,
+                        })
 
     def stats(self) -> dict:
         return {

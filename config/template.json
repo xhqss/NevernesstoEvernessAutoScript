@@ -1,18 +1,10 @@
 {
   "DefaultTask": {
-    "Scheduler": {
-      "Enable": false,
-      "NextRun": "2020-01-01 00:00:00",
-      "Command": "DefaultTask",
-      "SuccessInterval": 0,
-      "FailureInterval": 120,
-      "ServerUpdate": "00:00"
-    },
     "Device": {
-      "Platform": "auto",
-      "Serial": "auto",
-      "ScreenshotMethod": "auto",
-      "ControlMethod": "auto"
+      "Platform": "PC",
+      "EmulatorSerial": "127.0.0.1:7555",
+      "ScreenshotMethod": "WindowsGraphics",
+      "ControlMethod": "PostMessage"
     },
     "Ocr": {
       "Engine": "default",
@@ -30,46 +22,22 @@
       "DodgeKey": "shift",
       "InteractKey": "f"
     },
-    "NTEMonthlyCard": {
-      "CheckMonthlyCard": true,
-      "MonthlyCardTime": 5
-    },
-    "NTESoundTrigger": {
-      "EnableSoundTrigger": true,
-      "DodgeAllAttacks": true,
-      "DodgeThreshold": 0.13,
-      "CounterAttackThreshold": 0.12
-    },
-    "NTELauncher": {
-      "GameExe": "HTGame.exe",
-      "GameClass": "UnrealWindow",
-      "LaunchMethod": "auto"
+    "Restart": {
+      "SchedulerWatcher_Enable": false,
+      "SchedulerWatcher_TimeDelta": 10,
+      "SchedulerWatcher_WarningCount": 3,
+      "GameRestart_FatalErrorRestart": false,
+      "GameRestart_MaxRetryTimes": 20,
+      "CloseTask_Enable": false,
+      "CloseTask_MaxErrorOccur": 2,
+      "InstanceRestart_Enable": false,
+      "InstanceRestart_MaxRetryTimes": 20
     },
     "Storage": {
       "Storage": {}
-    }
-  },
-  "Launcher": {
+    },
     "Scheduler": {
-      "Enable": false,
-      "NextRun": "2020-01-01 00:00:00",
-      "Command": "Launcher",
-      "SuccessInterval": 0,
-      "FailureInterval": 120,
-      "ServerUpdate": "00:00"
-    },
-    "Window": {
-      "Title": null,
-      "Class": "UnrealWindow",
-      "Exe": "HTGame.exe"
-    },
-    "NTELauncher": {
-      "GameExe": "HTGame.exe",
-      "GameClass": "UnrealWindow",
-      "LaunchMethod": "auto"
-    },
-    "Storage": {
-      "Storage": {}
+      "Command": "DefaultTask"
     }
   },
   "Daily": {
@@ -145,6 +113,23 @@
       "Storage": {}
     }
   },
+  "Heist": {
+    "Scheduler": {
+      "Enable": false,
+      "NextRun": "2020-01-01 00:00:00",
+      "Command": "Heist",
+      "SuccessInterval": 0,
+      "FailureInterval": 120,
+      "ServerUpdate": "00:00"
+    },
+    "NTEHeist": {
+      "EnableHeist": false,
+      "HeistKeyInterval": 0.05
+    },
+    "Storage": {
+      "Storage": {}
+    }
+  },
   "AutoCombat": {
     "Scheduler": {
       "Enable": false,
@@ -193,23 +178,6 @@
     "NTETravel": {
       "EnableFastTravel": true,
       "TravelMethod": "auto"
-    },
-    "Storage": {
-      "Storage": {}
-    }
-  },
-  "Heist": {
-    "Scheduler": {
-      "Enable": false,
-      "NextRun": "2020-01-01 00:00:00",
-      "Command": "Heist",
-      "SuccessInterval": 0,
-      "FailureInterval": 120,
-      "ServerUpdate": "00:00"
-    },
-    "NTEHeist": {
-      "EnableHeist": false,
-      "HeistKeyInterval": 0.05
     },
     "Storage": {
       "Storage": {}

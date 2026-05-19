@@ -50,6 +50,9 @@ RecoveryHandler = type(object)  # placeholder; actual handlers are callables
 class RecoveryRuntime:
     """Progressive escalation recovery engine."""
 
+    MAX_TOTAL_ATTEMPTS = 50
+    LEVEL_COOLDOWN_S = 10
+
     def __init__(self, ctx: RuntimeContext):
         self.ctx = ctx
         self._weights: dict[str, float] = dict(INITIAL_WEIGHTS)
@@ -57,6 +60,7 @@ class RecoveryRuntime:
         self._success: dict[str, int] = defaultdict(int)
         self._failure: dict[str, int] = defaultdict(int)
         self._current_attempts: dict[str, int] = defaultdict(int)
+        self._total_attempts: int = 0
         self._lock = threading.Lock()
         self._cooldown: dict[str, float] = {}
         self._max_attempts = {level: 3 + i for i, level in enumerate(RECOVERY_CHAIN)}
@@ -77,9 +81,14 @@ class RecoveryRuntime:
             level = "L1_RETRY"
 
         with self._lock:
+            # Global max attempts check
+            if self._total_attempts >= self.MAX_TOTAL_ATTEMPTS:
+                return
+            self._total_attempts += 1
+
             # Cooldown check
             now = time.time()
-            if level in self._cooldown and now - self._cooldown[level] < 5:
+            if level in self._cooldown and now - self._cooldown[level] < self.LEVEL_COOLDOWN_S:
                 return
             self._cooldown[level] = now
             self._current_attempts[level] += 1

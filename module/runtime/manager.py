@@ -196,6 +196,24 @@ class RuntimeManager(BaseModule):
 
     def _on_watchdog_alert(self, event_type: str, payload: dict):
         alert_type = payload.get("type", "UNKNOWN")
+
+        # Backpressure: throttle when recovery keeps failing
+        if not hasattr(self, '_last_alert_ts'):
+            self._last_alert_ts = 0.0
+            self._consecutive_failures = 0
+        now = time.time()
+        if now - self._last_alert_ts < 30:
+            self._consecutive_failures += 1
+        else:
+            self._consecutive_failures = 0
+        self._last_alert_ts = now
+
+        if self._consecutive_failures >= 3:
+            logger.warning('Recovery backpressure: throttling after 3 consecutive failures')
+            time.sleep(30)
+            self._consecutive_failures = 0
+            return
+
         reason = f"Watchdog: {alert_type}"
         level = "L1_RETRY"
         if alert_type in ("FROZEN_SCREEN", "STALE_STATE", "OCR_LOOP"):

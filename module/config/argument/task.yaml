@@ -9,23 +9,16 @@ Default:
   page: setting
   tasks:
     DefaultTask:
-    - Scheduler
     - Device
     - Ocr
     - Window
     - NTEKeyBinding
-    - NTEMonthlyCard
-    - NTESoundTrigger
-    - NTELauncher
+    - Restart
 
-NTE:
+Tasks:
   menu: collapse
   page: setting
   tasks:
-    Launcher:
-    - Scheduler
-    - Window
-    - NTELauncher
     Daily:
     - Scheduler
     - NTEDaily
@@ -38,6 +31,14 @@ NTE:
     Rhythm:
     - Scheduler
     - NTERhythm
+    Heist:
+    - Scheduler
+    - NTEHeist
+
+GameTools:
+  menu: collapse
+  page: setting
+  tasks:
     AutoCombat:
     - Scheduler
     - NTECombat
@@ -47,6 +48,3 @@ NTE:
     FastTravel:
     - Scheduler
     - NTETravel
-    Heist:
-    - Scheduler
-    - NTEHeist

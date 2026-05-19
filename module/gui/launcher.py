@@ -39,7 +39,7 @@ def _deep_merge(base, override):
 
 def main():
     """Launch the al-script GUI application."""
-    config_name = 'template'
+    config_name = 'neas1'
     if len(sys.argv) > 1:
         config_name = sys.argv[1]
     config_name = os.environ.get('AL_CONFIG', config_name)

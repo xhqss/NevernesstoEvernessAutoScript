@@ -9,12 +9,6 @@ DefaultTask:
       type: state
       display: hide
 
-Launcher:
-  Scheduler:
-    Command:
-      type: state
-      display: hide
-
 Daily:
   Scheduler:
     Command:

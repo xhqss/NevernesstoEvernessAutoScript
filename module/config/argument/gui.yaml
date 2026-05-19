@@ -29,8 +29,8 @@ Status:
 # --------------------
 
 Scheduler:
-  _info: 调度设置
-  Enable: 启用
+  _info: 任务调度
+  Enable: 添加到任务队列
   NextRun: 下次运行
   Command: 命令
   SuccessInterval: 成功间隔
@@ -40,7 +40,7 @@ Scheduler:
 Device:
   _info: 设备设置
   Platform: 平台
-  Serial: 序列号
+  EmulatorSerial: 模拟器 Serial
   ScreenshotMethod: 截图方式
   ControlMethod: 控制方式
 
@@ -48,6 +48,18 @@ Ocr:
   _info: OCR 设置
   Engine: OCR 引擎
   TargetHeight: 目标高度
+
+Restart:
+  _info: 重启设置
+  SchedulerWatcher_Enable: 启用调度器看门狗
+  SchedulerWatcher_TimeDelta: 超时检测间隔(分)
+  SchedulerWatcher_WarningCount: 最大警告次数
+  GameRestart_FatalErrorRestart: 致命错误自动重启
+  GameRestart_MaxRetryTimes: 最大重试次数
+  CloseTask_Enable: 启用自动关闭任务
+  CloseTask_MaxErrorOccur: 最大错误发生次数
+  InstanceRestart_Enable: 启用实例重启
+  InstanceRestart_MaxRetryTimes: 实例最大重启次数
 
 Window:
   _info: 窗口设置

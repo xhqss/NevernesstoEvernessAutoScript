@@ -25,22 +25,24 @@ Scheduler:
 
 Device:
   Platform:
-    value: auto
-    option: [auto, pc, adb]
-  Serial:
-    value: auto
+    value: PC
+    option: [PC, Emulator]
+  EmulatorSerial:
+    value: "127.0.0.1:7555"
     valuetype: str
+    display: hide
   ScreenshotMethod:
-    value: auto
-    option: [auto, ADB, WindowsGraphics, BitBlt, scrcpy, nemu_ipc]
+    value: WindowsGraphics
+    option: [WindowsGraphics, BitBlt, ADB, scrcpy, nemu_ipc]
   ControlMethod:
-    value: auto
-    option: [auto, ADB, PostMessage, PyDirectInput, minitouch, maatouch]
+    value: PostMessage
+    option: [PostMessage, PyDirectInput, ADB, minitouch, maatouch, nemu_ipc]
 
 Ocr:
   Engine:
     value: default
     option: [default, cnocr, paddle, rapid, dgocr, onnx]
+    display: hide
   TargetHeight:
     value: 0
     display: hide
@@ -55,6 +57,39 @@ Window:
   Exe:
     value: ""
     valuetype: str
+
+Restart:
+  SchedulerWatcher_Enable:
+    type: checkbox
+    value: false
+    option: [true, false]
+  SchedulerWatcher_TimeDelta:
+    value: 10
+    valuetype: int
+  SchedulerWatcher_WarningCount:
+    value: 3
+    valuetype: int
+  GameRestart_FatalErrorRestart:
+    type: checkbox
+    value: false
+    option: [true, false]
+  GameRestart_MaxRetryTimes:
+    value: 20
+    valuetype: int
+  CloseTask_Enable:
+    type: checkbox
+    value: false
+    option: [true, false]
+  CloseTask_MaxErrorOccur:
+    value: 2
+    valuetype: int
+  InstanceRestart_Enable:
+    type: checkbox
+    value: false
+    option: [true, false]
+  InstanceRestart_MaxRetryTimes:
+    value: 20
+    valuetype: int
 
 Storage:
   Storage:
